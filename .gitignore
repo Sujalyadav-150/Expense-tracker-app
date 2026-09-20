@@ -1,0 +1,6 @@
+.vercel
+.env
+backend/.env
+backend/database/*.sqlite
+frontend/dist
+node_modules

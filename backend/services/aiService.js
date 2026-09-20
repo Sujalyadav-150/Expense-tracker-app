@@ -2,11 +2,12 @@ const OpenAI=require("openai");
 let client;
 const categories=["Food","Travel","Shopping","Bills","Entertainment","Health","Education","Salary","Other"];
 const model=process.env.OPENAI_MODEL||"gpt-4o-mini";
+const apiKey=process.env.OPENAI_API_KEY||process.env.OPENROUTER_API_KEY||process.env.openrouter_key;
 
 function getClient(){
  if(!client)client=new OpenAI({
-  apiKey:process.env.OPENAI_API_KEY,
-  baseURL:process.env.OPENAI_BASE_URL||undefined,
+  apiKey,
+  baseURL:process.env.OPENAI_BASE_URL||"https://openrouter.ai/api/v1",
   timeout:5000
  });
  return client;
@@ -33,7 +34,7 @@ function localCategory(description){
 }
 
 async function categorizeExpense(description){
- if(!process.env.OPENAI_API_KEY)return localCategory(description);
+ if(!apiKey)return localCategory(description);
  try{
   const r=await getClient().responses.create({model,input:[
    {role:"system",content:`Return ONLY one category from: ${categories.join(", ")}.`},
@@ -45,7 +46,7 @@ async function categorizeExpense(description){
  }catch(e){return localCategory(description);}
 }
 async function spendingInsight(expenses){
- if(!process.env.OPENAI_API_KEY)return localInsight(expenses);
+ if(!apiKey)return localInsight(expenses);
  const data=expenses.map(e=>({amount:e.amount,description:e.description,category:e.category}));
  try{
   const r=await getClient().responses.create({model,input:`Give one practical spending insight in under 30 words. Data: ${JSON.stringify(data)}`});

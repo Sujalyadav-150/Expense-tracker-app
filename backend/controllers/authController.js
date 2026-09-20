@@ -12,7 +12,7 @@ exports.register=async(req,res)=>{
   if(!email||password.length<6)return res.status(400).json({message:"Valid email and password of at least 6 characters are required"});
   if(await User.findOne({where:{email}}))return res.status(409).json({message:"Email is already registered"});
   const user=await User.create({email,passwordHash:await bcrypt.hash(password,10),isPremium:premiumEmail(email)});
-  res.status(201).json({token:tokenFor(user),user:{id:user.id,email:user.email,isPremium:user.isPremium}});
+    res.status(201).json({user:{id:user.id,email:user.email,isPremium:user.isPremium}});
  }catch(e){res.status(500).json({message:e.message});}
 };
 

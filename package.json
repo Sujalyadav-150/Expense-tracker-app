@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "node backend/server.js"
+    "start": "node backend/server.js",
+    "build": "vite build frontend"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -13,6 +14,7 @@
     "jsonwebtoken": "^9.0.3",
     "openai": "^6.16.0",
     "sequelize": "^6.37.5",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "vite": "^6.1.0"
   }
 }
