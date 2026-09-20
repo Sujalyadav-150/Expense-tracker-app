@@ -46,8 +46,8 @@ async function request(path, options = {}) {
   return data;
 }
 
-let authToken = localStorage.getItem("expenseTrackerToken");
-let currentUser = JSON.parse(localStorage.getItem("expenseTrackerUser") || "null");
+let authToken = localStorage.getItem("authToken") || localStorage.getItem("expenseTrackerToken");
+let currentUser = JSON.parse(localStorage.getItem("loggedInUser") || localStorage.getItem("expenseTrackerUser") || "null");
 let authMode = "login";
 
 function authHeaders() {
@@ -59,7 +59,9 @@ function authHeaders() {
 function setAuth(data) {
   authToken = data.token;
   currentUser = data.user;
+  localStorage.setItem("authToken", authToken);
   localStorage.setItem("expenseTrackerToken", authToken);
+  localStorage.setItem("loggedInUser", JSON.stringify(currentUser));
   localStorage.setItem("expenseTrackerUser", JSON.stringify(currentUser));
   updatePremiumState();
   load();
@@ -68,7 +70,9 @@ function setAuth(data) {
 function clearAuth() {
   authToken = null;
   currentUser = null;
+  localStorage.removeItem("authToken");
   localStorage.removeItem("expenseTrackerToken");
+  localStorage.removeItem("loggedInUser");
   localStorage.removeItem("expenseTrackerUser");
   updatePremiumState();
 }
@@ -177,17 +181,11 @@ authForm.onsubmit = async e => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, name: email.split("@")[0] })
     });
-    if (authMode === "register") {
-      clearAuth();
-      authForm.reset();
-      setAuthMode("login");
-      authEmail.value = email;
-      authMsg.textContent = "Account created successfully. Please login to continue.";
-    } else {
-      setAuth(data);
-      authMsg.textContent = "Login successful";
-      authForm.reset();
-    }
+
+    // Auto-login immediately upon successful account creation or login
+    setAuth(data);
+    authMsg.textContent = authMode === "register" ? "Account created and logged in!" : "Login successful";
+    authForm.reset();
   } catch (error) {
     authMsg.textContent = error.message;
   } finally {
