@@ -1,36 +1,50 @@
 const mongoose = require("mongoose");
 
-let isConnected = false;
+let cachedPromise = null;
 
 async function connectDB() {
-  if (isConnected || mongoose.connection.readyState === 1) {
-    isConnected = true;
+  if (mongoose.connection && mongoose.connection.readyState === 1) {
     return true;
+  }
+
+  if (cachedPromise) {
+    try {
+      await cachedPromise;
+      return true;
+    } catch (e) {
+      cachedPromise = null;
+    }
   }
 
   const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
   if (!uri) {
-    console.warn("MONGODB_URI is not set in environment variables. Auth/Data will fall back to local storage.");
+    console.warn("MONGODB_URI is not set in environment. App operating in local fallback mode.");
     return false;
   }
 
-  try {
-    await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000
-    });
-    isConnected = true;
-    console.log("Connected to MongoDB Atlas successfully");
-    return true;
-  } catch (error) {
-    console.error("MongoDB connection error:", error.message);
-    isConnected = false;
+  if (process.env.VERCEL && (uri.includes("localhost") || uri.includes("127.0.0.1"))) {
+    console.warn("Localhost MONGODB_URI detected in production Vercel environment. Falling back to local mode.");
     return false;
   }
+
+  cachedPromise = mongoose.connect(uri, {
+    serverSelectionTimeoutMS: 5000,
+    maxPoolSize: 10
+  }).then(() => {
+    console.log("Connected to MongoDB Atlas successfully.");
+    return true;
+  }).catch(err => {
+    console.error("MongoDB Atlas connection failed:", err.message);
+    cachedPromise = null;
+    return false;
+  });
+
+  return cachedPromise;
 }
 
 module.exports = {
   connectDB,
   get isConnected() {
-    return isConnected || mongoose.connection.readyState === 1;
+    return mongoose.connection && mongoose.connection.readyState === 1;
   }
 };

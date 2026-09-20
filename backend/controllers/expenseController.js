@@ -5,10 +5,10 @@ exports.getExpenses = async (req, res) => {
   try {
     const email = req.user?.email || String(req.query.email || "").trim().toLowerCase();
     if (!email) {
-      return res.status(400).json({ success: false, message: "User email is required." });
+      return res.json([]);
     }
     const list = await db.getExpenses(email);
-    return res.json(list);
+    return res.json(Array.isArray(list) ? list : []);
   } catch (error) {
     console.error("getExpenses error:", error.message);
     return res.status(500).json({ success: false, message: "Could not load expenses." });
@@ -80,7 +80,7 @@ exports.getLeaderboard = async (req, res) => {
     const requestedLimit = Number.parseInt(req.query.limit, 10);
     const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 10;
     const leaderboard = await db.getLeaderboard(limit);
-    return res.json({ leaderboard });
+    return res.json({ leaderboard: Array.isArray(leaderboard) ? leaderboard : [] });
   } catch (error) {
     console.error("getLeaderboard error:", error.message);
     return res.status(500).json({ success: false, message: "Could not load leaderboard." });
