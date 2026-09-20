@@ -23,7 +23,15 @@ form.addEventListener("submit", async (event) => {
       throw new Error(result.message || "Signup failed.");
     }
 
-    window.location.href = "login.html?registered=true";
+    if (result.token) {
+      localStorage.setItem("authToken", result.token);
+      localStorage.setItem("expenseTrackerToken", result.token);
+    }
+    const userObj = result.user || { email: user.email, name: user.name || user.email.split("@")[0] };
+    localStorage.setItem("loggedInUser", JSON.stringify(userObj));
+    localStorage.setItem("expenseTrackerUser", JSON.stringify(userObj));
+
+    window.location.href = "expenses.html";
   } catch (error) {
     message.textContent = error.message;
   }

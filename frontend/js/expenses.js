@@ -4,13 +4,22 @@ const descriptionInput = document.getElementById("description");
 const aiSuggestion = document.getElementById("aiSuggestion");
 const leaderboardPreview = document.getElementById("leaderboardPreview");
 const leaderboardMessage = document.getElementById("leaderboardMessage");
-const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser") || "null");
+
+const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser") || localStorage.getItem("expenseTrackerUser") || "null");
+const authToken = localStorage.getItem("authToken") || localStorage.getItem("expenseTrackerToken");
+
 let predictedCategory = null;
 let predictedDescription = "";
 let predictedSource = "fallback";
 
 if (!loggedInUser) {
   window.location.href = "login.html";
+}
+
+function authHeaders() {
+  const headers = {};
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+  return headers;
 }
 
 function updateTotalExpense(expenses) {
@@ -28,9 +37,13 @@ function updateTotalExpense(expenses) {
 }
 
 function renderExpenses(expenses) {
+  if (!Array.isArray(expenses) || expenses.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">No expenses recorded yet.</td></tr>';
+    return;
+  }
   tableBody.innerHTML = expenses.map((expense) => `
     <tr>
-      <td>${expense.amount}</td>
+      <td>₹${Number(expense.amount).toFixed(2)}</td>
       <td>${expense.description}</td>
       <td>${expense.category}</td>
       <td>${expense.categorySource || "saved"}</td>
@@ -44,8 +57,10 @@ async function deleteExpense(expenseId) {
     return;
   }
 
-  const response = await fetch(`/api/expenses/${expenseId}?email=${encodeURIComponent(loggedInUser.email)}`, {
-    method: "DELETE"
+  const queryEmail = loggedInUser?.email ? `?email=${encodeURIComponent(loggedInUser.email)}` : "";
+  const response = await fetch(`/api/expenses/${expenseId}${queryEmail}`, {
+    method: "DELETE",
+    headers: authHeaders()
   });
   const result = await response.json();
 
@@ -57,10 +72,14 @@ async function deleteExpense(expenseId) {
 }
 
 async function loadExpenses() {
-  const response = await fetch(`/api/expenses?email=${encodeURIComponent(loggedInUser.email)}`);
+  if (!loggedInUser?.email) return;
+  const response = await fetch(`/api/expenses?email=${encodeURIComponent(loggedInUser.email)}`, {
+    headers: authHeaders()
+  });
   const result = await response.json();
-  renderExpenses(result);
-  updateTotalExpense(result);
+  const list = Array.isArray(result) ? result : [];
+  renderExpenses(list);
+  updateTotalExpense(list);
 }
 
 async function suggestCategory() {
@@ -76,7 +95,7 @@ async function suggestCategory() {
   aiSuggestion.textContent = "AI is thinking...";
   const response = await fetch("/api/categorize-expense", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ description })
   });
   const result = await response.json();
@@ -92,18 +111,24 @@ async function suggestCategory() {
 }
 
 async function loadLeaderboard() {
-  const response = await fetch("/api/leaderboard?limit=5");
+  const response = await fetch("/api/leaderboard?limit=5", {
+    headers: authHeaders()
+  });
   const result = await response.json();
   if (!response.ok) {
-    throw new Error(result.message || "Could not load leaderboard.");
+    if (leaderboardMessage) leaderboardMessage.textContent = result.message || "Could not load leaderboard.";
+    return;
   }
 
-  leaderboardPreview.innerHTML = result.map((user) => `
-    <li>
-      <span><strong>${user.rank}</strong> ${user.name}</span>
-      <b>${user.totalExpense.toFixed(2)}</b>
-    </li>
-  `).join("");
+  const list = result.leaderboard || Array.isArray(result) ? (result.leaderboard || result) : [];
+  if (leaderboardPreview) {
+    leaderboardPreview.innerHTML = list.map((user) => `
+      <li>
+        <span><strong>#${user.rank}</strong> ${user.name || user.email}</span>
+        <b>₹${Number(user.totalExpense).toFixed(2)}</b>
+      </li>
+    `).join("");
+  }
 }
 
 form.addEventListener("submit", async (event) => {
@@ -126,7 +151,7 @@ form.addEventListener("submit", async (event) => {
   try {
     const response = await fetch("/api/expenses", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify(expense)
     });
     const result = await response.json();
@@ -171,14 +196,16 @@ descriptionInput.addEventListener("input", () => {
 });
 
 Promise.all([loadExpenses(), loadLeaderboard()]).catch((error) => {
-  leaderboardMessage.textContent = error.message;
+  if (leaderboardMessage) leaderboardMessage.textContent = error.message;
 });
 
 const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {
   logoutBtn.addEventListener("click", () => {
     localStorage.removeItem("authToken");
+    localStorage.removeItem("expenseTrackerToken");
     localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("expenseTrackerUser");
     window.location.href = "login.html";
   });
 }

@@ -45,8 +45,12 @@ form.addEventListener("submit", async (event) => {
 
     if (result.token) {
       localStorage.setItem("authToken", result.token);
+      localStorage.setItem("expenseTrackerToken", result.token);
     }
-    localStorage.setItem("loggedInUser", JSON.stringify(result.user));
+    const userObj = result.user || { email: user.email, name: user.email.split("@")[0] };
+    localStorage.setItem("loggedInUser", JSON.stringify(userObj));
+    localStorage.setItem("expenseTrackerUser", JSON.stringify(userObj));
+    
     window.location.href = "expenses.html";
   } catch (error) {
     message.textContent = error.message;
