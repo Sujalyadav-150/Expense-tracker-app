@@ -1,4 +1,4 @@
-const API = (import.meta.env.VITE_API_URL || "/api").replace(/\/+$/, "");
+const API = "/api";
 const form = document.getElementById("form");
 const msg = document.getElementById("msg");
 const leaderboardBtn = document.getElementById("leaderboardBtn");
@@ -34,7 +34,7 @@ async function request(path, options = {}) {
   try {
     response = await fetch(url, options);
   } catch (error) {
-    throw new Error("Unable to reach the backend. Check the deployed API URL and CORS settings.");
+    throw new Error("Unable to reach the backend. Check network connectivity.");
   }
   let data;
   try {
@@ -79,24 +79,26 @@ function clearAuth() {
 
 function updatePremiumState() {
   const isLogged = Boolean(currentUser);
-  authScreen.hidden = isLogged;
-  trackerApp.hidden = !isLogged;
+  if (authScreen) authScreen.hidden = isLogged;
+  if (trackerApp) trackerApp.hidden = !isLogged;
 }
 
 function setAuthMode(mode) {
   authMode = mode;
   const signup = mode === "register";
-  authTitle.textContent = signup ? "Create your account" : "Welcome back";
-  authSubtitle.textContent = signup ? "Start tracking your expenses" : "Sign in to continue to your expenses";
-  authSubmit.textContent = signup ? "Create account" : "Login";
-  registerBtn.textContent = signup ? "Back to login" : "Create a new account";
-  authMsg.textContent = "";
+  if (authTitle) authTitle.textContent = signup ? "Create your account" : "Welcome back";
+  if (authSubtitle) authSubtitle.textContent = signup ? "Start tracking your expenses" : "Sign in to continue to your expenses";
+  if (authSubmit) authSubmit.textContent = signup ? "Create account" : "Login";
+  if (registerBtn) registerBtn.textContent = signup ? "Back to login" : "Create a new account";
+  if (authMsg) authMsg.textContent = "";
 }
 
-logoutBtn.addEventListener("click", () => {
-  clearAuth();
-  authMsg.textContent = "You have been logged out.";
-});
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", () => {
+    clearAuth();
+    if (authMsg) authMsg.textContent = "You have been logged out.";
+  });
+}
 
 if (leaderboardBtn) {
   leaderboardBtn.addEventListener("click", async () => {
@@ -117,7 +119,7 @@ if (leaderboardBtn) {
 }
 
 async function load() {
-  if (!currentUser) return;
+  if (!currentUser || !list) return;
   try {
     const queryEmail = currentUser.email ? `?email=${encodeURIComponent(currentUser.email)}` : "";
     const xs = await request(`/api/expenses${queryEmail}`, { headers: authHeaders() });
@@ -135,17 +137,18 @@ async function load() {
         list.appendChild(d);
       });
     }
-    total.textContent = `Total: ₹${t.toFixed(2)}`;
+    if (total) total.textContent = `Total: ₹${t.toFixed(2)}`;
   } catch (error) {
     list.innerHTML = `<div class="empty-state">${esc(error.message)}</div>`;
   }
 }
 
 async function loadLeaderboard() {
+  if (!leaderboard) return;
   try {
     const data = await request("/api/leaderboard?limit=10", { headers: authHeaders() });
     const listData = data.leaderboard || [];
-    leaderboardTotal.textContent = `${listData.length} users`;
+    if (leaderboardTotal) leaderboardTotal.textContent = `${listData.length} users`;
     if (!listData.length) {
       leaderboard.innerHTML = '<div class="empty-state">No user expenses yet.</div>';
       return;
@@ -157,70 +160,76 @@ async function loadLeaderboard() {
   }
 }
 
-authForm.onsubmit = async e => {
-  e.preventDefault();
-  const email = authEmail.value.trim().toLowerCase();
-  const password = authPassword.value;
-  if (!email) {
-    authMsg.textContent = "Please enter your email address.";
-    authEmail.focus();
-    return;
-  }
-  if (password.length < 6) {
-    authMsg.textContent = "Password must be at least 6 characters.";
-    authPassword.focus();
-    return;
-  }
-  authSubmit.disabled = true;
-  registerBtn.disabled = true;
-  authMsg.textContent = authMode === "register" ? "Creating your account..." : "Logging in...";
-  try {
-    const path = authMode === "register" ? "/api/auth/signup" : "/api/auth/login";
-    const data = await request(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name: email.split("@")[0] })
-    });
+if (authForm) {
+  authForm.onsubmit = async e => {
+    e.preventDefault();
+    const email = authEmail.value.trim().toLowerCase();
+    const password = authPassword.value;
+    if (!email) {
+      authMsg.textContent = "Please enter your email address.";
+      authEmail.focus();
+      return;
+    }
+    if (password.length < 6) {
+      authMsg.textContent = "Password must be at least 6 characters.";
+      authPassword.focus();
+      return;
+    }
+    authSubmit.disabled = true;
+    if (registerBtn) registerBtn.disabled = true;
+    authMsg.textContent = authMode === "register" ? "Creating your account..." : "Logging in...";
+    try {
+      const path = authMode === "register" ? "/api/auth/signup" : "/api/auth/login";
+      const data = await request(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name: email.split("@")[0] })
+      });
 
-    // Auto-login immediately upon successful account creation or login
-    setAuth(data);
-    authMsg.textContent = authMode === "register" ? "Account created and logged in!" : "Login successful";
-    authForm.reset();
-  } catch (error) {
-    authMsg.textContent = error.message;
-  } finally {
-    authSubmit.disabled = false;
-    registerBtn.disabled = false;
-  }
-};
-
-registerBtn.onclick = () => {
-  setAuthMode(authMode === "register" ? "login" : "register");
-  if (authMode === "register") authEmail.focus();
-};
-
-form.onsubmit = async e => {
-  e.preventDefault();
-  msg.textContent = "Categorizing...";
-  const body = {
-    amount: +amount.value,
-    description: description.value.trim(),
-    email: currentUser?.email
+      // Auto-login immediately upon successful account creation or login
+      setAuth(data);
+      authMsg.textContent = authMode === "register" ? "Account created and logged in!" : "Login successful";
+      authForm.reset();
+    } catch (error) {
+      authMsg.textContent = error.message;
+    } finally {
+      authSubmit.disabled = false;
+      if (registerBtn) registerBtn.disabled = false;
+    }
   };
-  if (category.value) body.category = category.value;
-  try {
-    const x = await request("/api/expenses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify(body)
-    });
-    msg.textContent = x.category ? `Category: ${x.category}` : "Expense added.";
-    form.reset();
-    load();
-  } catch (error) {
-    msg.textContent = error.message;
-  }
-};
+}
+
+if (registerBtn) {
+  registerBtn.onclick = () => {
+    setAuthMode(authMode === "register" ? "login" : "register");
+    if (authMode === "register" && authEmail) authEmail.focus();
+  };
+}
+
+if (form) {
+  form.onsubmit = async e => {
+    e.preventDefault();
+    msg.textContent = "Categorizing...";
+    const body = {
+      amount: +amount.value,
+      description: description.value.trim(),
+      email: currentUser?.email
+    };
+    if (category && category.value) body.category = category.value;
+    try {
+      const x = await request("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify(body)
+      });
+      msg.textContent = x.category ? `Category: ${x.category}` : "Expense added.";
+      form.reset();
+      load();
+    } catch (error) {
+      msg.textContent = error.message;
+    }
+  };
+}
 
 async function del(id) {
   if (confirm("Delete this expense?")) {
@@ -229,7 +238,7 @@ async function del(id) {
       await request("/api/expenses/" + id + queryEmail, { method: "DELETE", headers: authHeaders() });
       load();
     } catch (error) {
-      msg.textContent = error.message;
+      if (msg) msg.textContent = error.message;
     }
   }
 }
