@@ -1,4 +1,70 @@
-<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Expense Tracker</title><link rel="stylesheet" href="style.css"></head><body><main>
-<header><div><span>AI POWERED</span><h1>Smart Expense Tracker</h1><p>Let AI understand your spending.</p></div><button id="insightBtn">✨ AI Spending Insight</button></header>
-<section class="card"><h2>Add Expense</h2><form id="form"><input id="amount" type="number" min="1" step=".01" placeholder="Amount" required><input id="description" placeholder="e.g. Lunch at Domino's" required><select id="category"><option value="">🤖 Let AI choose</option><option>Food</option><option>Travel</option><option>Shopping</option><option>Bills</option><option>Entertainment</option><option>Health</option><option>Education</option><option>Salary</option><option>Other</option></select><button>Add Expense</button></form><p id="msg"></p></section>
-<section class="card"><div class="head"><h2>Your Expenses</h2><b id="total">Total: ₹0.00</b></div><div id="insight"></div><div id="list"></div></section></main><script src="script.js"></script></body></html>
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>AI Expense Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <section class="auth-screen" id="authScreen">
+        <div class="auth-hero"><span>AI POWERED</span><h1>Smart Expense Tracker</h1><p>Track spending. Let AI make it smarter.</p></div>
+        <section class="login-panel">
+            <div class="login-mark">⚡</div>
+            <h2 id="authTitle">Welcome back</h2>
+            <p class="login-subtitle" id="authSubtitle">Sign in to continue to your expenses</p>
+            <form id="authForm" class="login-form"><label>Email<input id="authEmail" type="email" placeholder="you@example.com" required></label><label>Password<input id="authPassword" type="password" minlength="6" placeholder="At least 6 characters" required></label><button id="authSubmit" type="submit">Login</button></form>
+            <button id="registerBtn" type="button" class="secondary-btn auth-switch">Create a new account</button>
+            <p id="authMsg"></p>
+        </section>
+    </section>
+    <main id="trackerApp" hidden>
+        <header>
+            <div><span>AI POWERED</span>
+                <h1>Smart Expense Tracker</h1>
+                <p>Let AI understand your spending.</p>
+            </div><div class="header-actions"><button id="insightBtn">✨ AI Spending Insight</button><button id="logoutBtn" class="logout-btn" type="button">Logout</button></div>
+        </header>
+        <section class="card">
+            <h2>Add Expense</h2>
+            <form id="form"><input id="amount" type="number" min="1" step=".01" placeholder="Amount" required><input
+                    id="description" placeholder="e.g. Lunch at Domino's" required><select id="category">
+                    <option value="">🤖 Let AI choose</option>
+                    <option>Food</option>
+                    <option>Travel</option>
+                    <option>Shopping</option>
+                    <option>Bills</option>
+                    <option>Entertainment</option>
+                    <option>Health</option>
+                    <option>Education</option>
+                    <option>Salary</option>
+                    <option>Other</option>
+                </select><button>Add Expense</button></form>
+            <p id="msg"></p>
+            <div class="premium-row" id="premiumRow" hidden><span>You are a premium user</span><button id="leaderboardBtn" class="leaderboard-btn" type="button">Show Leaderboard</button></div>
+            <p class="premium-required" id="premiumRequired">Login with a premium account to use the leaderboard.</p>
+        </section>
+        <section class="card leaderboard-card" id="leaderboardCard" hidden>
+            <div class="head">
+                <div><span class="section-label">PREMIUM FEATURE</span><h2>Category Leaderboard</h2></div>
+                <span class="premium-badge">PREMIUM</span>
+            </div>
+            <div id="leaderboardPanel">
+                <div class="leaderboard-summary"><b id="leaderboardTotal">0 categories</b><span>Ranked by total spending</span></div>
+            <div id="leaderboard"></div>
+            </div>
+        </section>
+        <section class="card">
+            <div class="head">
+                <h2>Your Expenses</h2><b id="total">Total: ₹0.00</b>
+            </div>
+            <div id="insight"></div>
+            <div id="list"></div>
+        </section>
+    </main>
+    <script src="script.js"></script>
+</body>
+
+</html>

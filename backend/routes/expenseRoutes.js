@@ -1,1 +1,1 @@
-const r=require("express").Router(),c=require("../controllers/expenseController");r.get("/",c.getExpenses);r.post("/",c.createExpense);r.delete("/:id",c.deleteExpense);module.exports=r;
+const r=require("express").Router(),c=require("../controllers/expenseController"),auth=require("../middleware/auth");r.get("/",c.getExpenses);r.post("/",auth.optional,c.createExpense);r.delete("/:id",c.deleteExpense);r.get("/leaderboard",auth,c.getLeaderboard);module.exports=r;
