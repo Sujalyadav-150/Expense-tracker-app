@@ -1,1 +1,10 @@
-const r=require("express").Router(),c=require("../controllers/expenseController"),auth=require("../middleware/auth");r.get("/",c.getExpenses);r.post("/",auth.optional,c.createExpense);r.delete("/:id",c.deleteExpense);r.get("/leaderboard",auth,c.getLeaderboard);module.exports=r;
+const router = require("express").Router();
+const controller = require("../controllers/expenseController");
+const authMiddleware = require("../middleware/auth");
+
+router.get("/leaderboard", authMiddleware.optional, controller.getLeaderboard);
+router.get("/", authMiddleware.optional, controller.getExpenses);
+router.post("/", authMiddleware.optional, controller.createExpense);
+router.delete("/:id", authMiddleware.optional, controller.deleteExpense);
+
+module.exports = router;

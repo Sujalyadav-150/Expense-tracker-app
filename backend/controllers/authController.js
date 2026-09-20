@@ -1,26 +1,172 @@
-const bcrypt=require("bcryptjs");
-const jwt=require("jsonwebtoken");
-const User=require("../models/User");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const db = require("../utils/db");
+const PasswordResetToken = require("../models/PasswordResetToken");
 
-function tokenFor(user){return jwt.sign({userId:user.id},process.env.JWT_SECRET||"development-secret-change-me",{expiresIn:"7d"});}
-function premiumEmail(email){return (process.env.PREMIUM_EMAILS||"").split(",").map(value=>value.trim().toLowerCase()).includes(email.toLowerCase());}
+const JWT_SECRET = process.env.JWT_SECRET || "expense_tracker_jwt_secret_key_2026_stable_fallback";
 
-exports.register=async(req,res)=>{
- try{
-  const email=String(req.body.email||"").trim().toLowerCase();
-  const password=String(req.body.password||"");
-  if(!email||password.length<6)return res.status(400).json({message:"Valid email and password of at least 6 characters are required"});
-  if(await User.findOne({where:{email}}))return res.status(409).json({message:"Email is already registered"});
-  const user=await User.create({email,passwordHash:await bcrypt.hash(password,10),isPremium:premiumEmail(email)});
-    res.status(201).json({user:{id:user.id,email:user.email,isPremium:user.isPremium}});
- }catch(e){res.status(500).json({message:e.message});}
+function generateToken(user) {
+  return jwt.sign(
+    { id: user.id || user._id || user.email, email: user.email, name: user.name || "User" },
+    JWT_SECRET,
+    { expiresIn: "30d" }
+  );
+}
+
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(String(email || ""));
+}
+
+async function verifyPassword(inputPassword, storedHash) {
+  if (!storedHash) return false;
+  const str = String(inputPassword || "");
+  if (storedHash.startsWith("$2b$") || storedHash.startsWith("$2a$")) {
+    return await bcrypt.compare(str, storedHash);
+  }
+  // Legacy fallback: crypto.scryptSync
+  const legacyHash = crypto.scryptSync(str, "expense-tracker-salt", 64).toString("hex");
+  return legacyHash === storedHash;
+}
+
+exports.register = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const trimmedName = String(name || "").trim() || "User";
+
+    if (!normalizedEmail || !password) {
+      return res.status(400).json({ success: false, message: "Email and password are required." });
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ success: false, message: "Please provide a valid email address." });
+    }
+    if (String(password).length < 6) {
+      return res.status(400).json({ success: false, message: "Password must be at least 6 characters long." });
+    }
+
+    const hashedPassword = await bcrypt.hash(String(password), 10);
+    const user = await db.createUser({ name: trimmedName, email: normalizedEmail, password: hashedPassword });
+    const token = generateToken(user);
+
+    return res.status(201).json({
+      success: true,
+      message: "Account created successfully.",
+      user: { id: user.id, name: user.name, email: user.email },
+      token
+    });
+  } catch (error) {
+    console.error("signup/register error:", error.message);
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Could not create account."
+    });
+  }
 };
 
-exports.login=async(req,res)=>{
- try{
-  const email=String(req.body.email||"").trim().toLowerCase();
-  const user=await User.findOne({where:{email}});
-  if(!user||!(await bcrypt.compare(String(req.body.password||""),user.passwordHash)))return res.status(401).json({message:"Invalid email or password"});
-  res.json({token:tokenFor(user),user:{id:user.id,email:user.email,isPremium:user.isPremium}});
- }catch(e){res.status(500).json({message:e.message});}
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    if (!normalizedEmail || !password) {
+      return res.status(400).json({ success: false, message: "Email and password are required." });
+    }
+
+    const user = await db.getUser(normalizedEmail);
+    if (!user) {
+      return res.status(401).json({ success: false, message: "Invalid email or password." });
+    }
+
+    const passwordMatch = await verifyPassword(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ success: false, message: "Invalid email or password." });
+    }
+
+    const token = generateToken(user);
+    return res.status(200).json({
+      success: true,
+      message: "Login successful.",
+      user: { id: user.id, name: user.name, email: user.email, isPremium: !!user.isPremium },
+      token
+    });
+  } catch (error) {
+    console.error("login error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error. Please try again."
+    });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const email = String(req.body.email || "").trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required." });
+    }
+
+    const user = await db.getUser(email);
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: "If an account exists for this email, a reset link has been sent."
+      });
+    }
+
+    const rawToken = crypto.randomUUID();
+    await db.createResetToken({ email, rawToken, expiresInMs: 15 * 60 * 1000 });
+
+    const resetUrl = `/reset-password.html?token=${encodeURIComponent(rawToken)}`;
+    return res.status(200).json({
+      success: true,
+      message: "Password reset link created successfully.",
+      resetToken: rawToken,
+      resetUrl
+    });
+  } catch (error) {
+    console.error("forgotPassword error:", error.message);
+    return res.status(500).json({ success: false, message: "Internal server error." });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const token = String(req.body.token || "").trim();
+    const password = String(req.body.password || "").trim();
+    if (!token || !password) {
+      return res.status(400).json({ success: false, message: "Reset token and password are required." });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: "Password must be at least 6 characters long." });
+    }
+
+    const tokenHash = PasswordResetToken.hashToken(token);
+    const tokenRecord = await db.getResetTokenByHash(tokenHash);
+
+    if (!tokenRecord || !PasswordResetToken.isValid(tokenRecord)) {
+      return res.status(400).json({ success: false, message: "Invalid or expired reset token." });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await db.updateUserPassword(tokenRecord.userId, hashedPassword);
+    await db.markTokenUsed(tokenRecord.id || tokenRecord.tokenHash);
+
+    return res.status(200).json({ success: true, message: "Password reset successfully." });
+  } catch (error) {
+    console.error("resetPassword error:", error.message);
+    return res.status(500).json({ success: false, message: "Internal server error." });
+  }
+};
+
+exports.me = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+    return res.json({ success: true, user: { id: req.user.id, name: req.user.name, email: req.user.email, isPremium: req.user.isPremium } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Internal server error." });
+  }
 };

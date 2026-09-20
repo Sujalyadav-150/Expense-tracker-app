@@ -1,7 +1,40 @@
-const {DataTypes}=require("sequelize");
-const db=require("../config/database");
-const User=require("./User");
-const Expense=db.define("Expense",{id:{type:DataTypes.INTEGER,autoIncrement:true,primaryKey:true},amount:{type:DataTypes.FLOAT,allowNull:false},description:{type:DataTypes.TEXT,allowNull:false},category:{type:DataTypes.STRING,allowNull:false},aiSuggested:{type:DataTypes.BOOLEAN,defaultValue:true},userId:{type:DataTypes.INTEGER,allowNull:true}},{tableName:"expenses",timestamps:true});
-Expense.belongsTo(User,{foreignKey:"userId"});
-User.hasMany(Expense,{foreignKey:"userId"});
-module.exports=Expense;
+const mongoose = require("mongoose");
+
+const expenseSchema = new mongoose.Schema({
+  id: {
+    type: Number,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true,
+    lowercase: true,
+    trim: true
+  },
+  amount: {
+    type: Number,
+    required: true
+  },
+  description: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  category: {
+    type: String,
+    required: true
+  },
+  categorySource: {
+    type: String,
+    default: "fallback"
+  },
+  aiSuggested: {
+    type: Boolean,
+    default: false
+  }
+}, { timestamps: true });
+
+expenseSchema.index({ email: 1 });
+expenseSchema.index({ id: 1 });
+
+module.exports = mongoose.models.Expense || mongoose.model("Expense", expenseSchema);

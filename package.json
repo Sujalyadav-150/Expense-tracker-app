@@ -1,20 +1,23 @@
 {
-  "name": "ai-expense-tracker",
+  "name": "expense-tracker-project",
   "version": "1.0.0",
   "private": true,
+  "description": "Full-stack expense tracker deployable on Vercel",
+  "main": "backend/app.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
-    "start": "node backend/server.js",
-    "build": "vite build frontend"
+    "start": "node backend/app.js",
+    "dev": "node backend/app.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.3",
-    "openai": "^6.16.0",
-    "sequelize": "^6.37.5",
-    "sqlite3": "^5.1.7",
-    "vite": "^6.1.0"
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.10.1",
+    "openai": "^6.16.0"
   }
 }

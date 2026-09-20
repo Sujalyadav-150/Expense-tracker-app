@@ -1,23 +1,88 @@
-const {fn,col,Op}=require("sequelize");
-const Expense=require("../models/Expense");
-const User=require("../models/User");
-const {categorizeExpense}=require("../services/aiService");
-exports.getExpenses=async(req,res)=>{try{res.json(await Expense.findAll({order:[["createdAt","DESC"]]}));}catch(e){res.status(500).json({message:e.message});}};
-exports.createExpense=async(req,res)=>{try{
- const {amount,description,category}=req.body;
- if(!amount||!description)return res.status(400).json({message:"Amount and description are required"});
- let finalCategory=category,aiSuggested=false;
- if(!finalCategory){
-  try{finalCategory=await categorizeExpense(description);aiSuggested=true;}
-  catch(e){finalCategory="Other";}
- }
- res.status(201).json(await Expense.create({amount:Number(amount),description:description.trim(),category:finalCategory,aiSuggested,userId:req.user?.id||null}));
-}catch(e){res.status(500).json({message:e.message});}};
-exports.deleteExpense=async(req,res)=>{try{const x=await Expense.findByPk(req.params.id);if(!x)return res.status(404).json({message:"Expense not found"});await x.destroy();res.json({message:"Deleted"});}catch(e){res.status(500).json({message:e.message});}};
-exports.getLeaderboard=async(req,res)=>{
- try{
-  if(!req.user.isPremium)return res.status(403).json({message:"Leaderboard is available to premium users only"});
-  const rows=await Expense.findAll({attributes:[[fn("SUM",col("amount")),"totalExpense"]],where:{userId:{[Op.ne]:null}},include:[{model:User,attributes:["email"],required:true}],group:["userId","User.id"],order:[[fn("SUM",col("amount")),"DESC"]],raw:true});
-  res.json({leaderboard:rows.map((row,index)=>({rank:index+1,email:row["User.email"],totalExpense:Number(row.totalExpense)}))});
- }catch(e){res.status(500).json({message:e.message});}
+const db = require("../utils/db");
+const { categorizeExpense } = require("../services/aiService");
+
+exports.getExpenses = async (req, res) => {
+  try {
+    const email = req.user?.email || String(req.query.email || "").trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ success: false, message: "User email is required." });
+    }
+    const list = await db.getExpenses(email);
+    return res.json(list);
+  } catch (error) {
+    console.error("getExpenses error:", error.message);
+    return res.status(500).json({ success: false, message: "Could not load expenses." });
+  }
+};
+
+exports.createExpense = async (req, res) => {
+  try {
+    const { amount, description, category, categorySource } = req.body;
+    const email = req.user?.email || String(req.body.email || "").trim().toLowerCase();
+    const numericAmount = Number(amount);
+
+    if (!email || !Number.isFinite(numericAmount) || numericAmount <= 0 || !String(description || "").trim()) {
+      return res.status(400).json({ success: false, message: "Valid amount and description are required." });
+    }
+
+    let finalCategory = category;
+    let finalSource = categorySource || "fallback";
+    let aiSuggested = false;
+
+    if (!finalCategory) {
+      try {
+        finalCategory = await categorizeExpense(description);
+        finalSource = "ai";
+        aiSuggested = true;
+      } catch (e) {
+        finalCategory = "Other";
+        finalSource = "fallback";
+      }
+    }
+
+    const created = await db.addExpense({
+      email,
+      amount: numericAmount,
+      description: String(description).trim(),
+      category: String(finalCategory),
+      categorySource: finalSource,
+      aiSuggested,
+      userId: req.user?.id || null
+    });
+
+    return res.status(201).json(created);
+  } catch (error) {
+    console.error("createExpense error:", error.message);
+    return res.status(500).json({ success: false, message: error.message || "Could not add expense." });
+  }
+};
+
+exports.deleteExpense = async (req, res) => {
+  try {
+    const email = req.user?.email || String(req.query.email || "").trim().toLowerCase();
+    const rawId = String(req.params.id || "").trim();
+
+    if (!email || !rawId) {
+      return res.status(400).json({ success: false, message: "Email and expense ID are required." });
+    }
+
+    await db.deleteExpense(email, rawId);
+    return res.json({ success: true, message: "Expense deleted successfully." });
+  } catch (error) {
+    console.error("deleteExpense error:", error.message);
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({ success: false, message: error.message || "Expense not found." });
+  }
+};
+
+exports.getLeaderboard = async (req, res) => {
+  try {
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 10;
+    const leaderboard = await db.getLeaderboard(limit);
+    return res.json({ leaderboard });
+  } catch (error) {
+    console.error("getLeaderboard error:", error.message);
+    return res.status(500).json({ success: false, message: "Could not load leaderboard." });
+  }
 };
