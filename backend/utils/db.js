@@ -82,19 +82,15 @@ async function getExpenses(email) {
   return readJson(expensesFile, {})[normEmail] || [];
 }
 
-async function getNextExpenseId() {
-  if (await ensureDB()) {
-    const doc = await Expense.findOne().sort({ id: -1 }).select("id").lean();
-    return (Number.isInteger(doc?.id) ? doc.id : 0) + 1;
-  }
-  if (isProduction) throw new Error("MongoDB connection is required in production.");
-  const all = Object.values(readJson(expensesFile, {})).flat();
-  return all.reduce((max, e) => Math.max(max, Number(e.id) || 0), 0) + 1;
+function makeExpenseId() {
+  // Avoid an extra MongoDB read before every insert. This keeps Vercel
+  // requests to one DB write and remains safely within JavaScript's integer range.
+  return Date.now() * 1000 + Math.floor(Math.random() * 1000);
 }
 
 async function addExpense({ email, amount, description, category, categorySource, aiSuggested = false }) {
   const normEmail = String(email || "").trim().toLowerCase();
-  const id = await getNextExpenseId();
+  const id = makeExpenseId();
   if (await ensureDB()) {
     const e = await Expense.create({ id, email: normEmail, amount: Number(amount), description: String(description).trim(), category: String(category), categorySource: categorySource || "fallback", aiSuggested: !!aiSuggested });
     return { id:e.id, amount:e.amount, description:e.description, category:e.category, categorySource:e.categorySource, aiSuggested:e.aiSuggested, createdAt:e.createdAt };
