@@ -31,9 +31,11 @@ async function connectDB() {
   }
 
   cachedPromise = mongoose.connect(uri, {
-    serverSelectionTimeoutMS: 5000,
+    serverSelectionTimeoutMS: 4000,
     maxPoolSize: 10,
-    maxIdleTimeMS: 10000
+    // Do not aggressively close idle sockets. Vercel serverless instances
+    // are reused and reconnecting after every short idle period makes the app slow.
+    minPoolSize: 0
   }).then(() => {
     console.log("Connected to MongoDB Atlas successfully.");
     return true;
