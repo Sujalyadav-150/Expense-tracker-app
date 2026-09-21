@@ -2,8 +2,6 @@ const form = document.getElementById("expenseForm");
 const tableBody = document.getElementById("expenseTableBody");
 const descriptionInput = document.getElementById("description");
 const aiSuggestion = document.getElementById("aiSuggestion");
-const leaderboardPreview = document.getElementById("leaderboardPreview");
-const leaderboardMessage = document.getElementById("leaderboardMessage");
 
 const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser") || localStorage.getItem("expenseTrackerUser") || "null");
 const authToken = localStorage.getItem("authToken") || localStorage.getItem("expenseTrackerToken");
@@ -74,17 +72,23 @@ function renderExpenses(expenses) {
 }
 
 async function deleteExpense(expenseId) {
-  if (!window.confirm("Delete this expense?")) {
-    return;
+  if (!window.confirm("Delete this expense?")) return;
+
+  const button = tableBody.querySelector(`[data-expense-id="${CSS.escape(String(expenseId))}"]`);
+  if (button) button.disabled = true;
+
+  try {
+    await apiJson(`/api/expenses/${encodeURIComponent(expenseId)}`, {
+      method: "DELETE",
+      headers: authHeaders()
+    });
+
+    currentExpenses = currentExpenses.filter(expense => String(expense.id) !== String(expenseId));
+    renderExpenses(currentExpenses);
+    updateTotalExpense(currentExpenses);
+  } catch (error) {
+    window.alert(error.message);
   }
-
-  const result = await apiJson(`/api/expenses/${encodeURIComponent(expenseId)}`, {
-    method: "DELETE",
-    headers: authHeaders()
-  });
-
-  await loadExpenses();
-  await loadLeaderboard();
 }
 
 async function loadExpenses() {
@@ -119,22 +123,6 @@ async function suggestCategory() {
   predictedDescription = description;
   predictedSource = result.source || "fallback";
   aiSuggestion.textContent = `Suggested category: ${result.category}`;
-}
-
-async function loadLeaderboard() {
-  const result = await apiJson("/api/leaderboard?limit=5", {
-    headers: authHeaders()
-  });
-
-  const list = result.leaderboard || Array.isArray(result) ? (result.leaderboard || result) : [];
-  if (leaderboardPreview) {
-    leaderboardPreview.innerHTML = list.map((user) => `
-      <li>
-        <span><strong>#${user.rank}</strong> ${user.name || user.email}</span>
-        <b>₹${Number(user.totalExpense).toFixed(2)}</b>
-      </li>
-    `).join("");
-  }
 }
 
 form.addEventListener("submit", async (event) => {
@@ -173,10 +161,6 @@ form.addEventListener("submit", async (event) => {
       renderExpenses(currentExpenses);
       updateTotalExpense(currentExpenses);
     }
-    // Refresh leaderboard in the background; it must not block the add flow.
-    loadLeaderboard().catch((error) => {
-      if (leaderboardMessage) leaderboardMessage.textContent = error.message;
-    });
   } catch (error) {
     window.alert(error.message);
   } finally {
@@ -206,9 +190,7 @@ descriptionInput.addEventListener("input", () => {
   }, 400);
 });
 
-Promise.all([loadExpenses(), loadLeaderboard()]).catch((error) => {
-  if (leaderboardMessage) leaderboardMessage.textContent = error.message;
-});
+loadExpenses().catch((error) => window.alert(error.message));
 
 const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {
