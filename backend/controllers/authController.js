@@ -4,7 +4,8 @@ const crypto = require("crypto");
 const db = require("../utils/db");
 const PasswordResetToken = require("../models/PasswordResetToken");
 
-const JWT_SECRET = process.env.JWT_SECRET;\nif (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is required.");
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is required.");
 
 function generateToken(user) {
   return jwt.sign(
