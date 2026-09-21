@@ -1,6 +1,6 @@
  AI Expense Tracker
 
-A full-stack AI-powered Expense Tracker built with HTML, CSS, JavaScript, Node.js, Express, SQLite, Sequelize, JWT authentication, and OpenAI-compatible AI APIs.
+A full-stack AI-powered Expense Tracker built with HTML, CSS, JavaScript, Node.js, Express, MongoDB/Mongoose, JWT authentication, and OpenAI-compatible AI APIs.
 
 The application allows users to create an account, log in securely, add and manage expenses, automatically categorize expenses using AI, and get AI-generated spending insights.
 
@@ -62,9 +62,9 @@ Leaderboard ranks users according to total spending
 
 🗄️ Database
 
-SQLite database
+MongoDB Atlas
 
-Sequelize ORM
+Mongoose ODM
 
 User and Expense models
 
@@ -83,47 +83,30 @@ Environment-variable based configuration
 🛠️ Tech Stack
 
 Frontend
-
 HTML5
-
 CSS3
-
 Vanilla JavaScript
-
 Vite
 
 Backend
-
 Node.js
-
 Express.js
-
 REST API
-
 JWT
-
 bcryptjs
 
 Database
-
-SQLite
-
-Sequelize ORM
+MongoDB Atlas
+Mongoose
 
 AI
-
 OpenAI-compatible API
-
 OpenRouter support
-
 AI expense categorization
-
 AI spending insights
 
 Deployment
-
 Vercel
-
 GitHub
 
 📁 Project Structure
@@ -151,9 +134,10 @@ AI-Expense-Tracker/
 │   │   └── expenseRoutes.js
 │   ├── services/
 │   │   └── aiService.js
+│   ├── utils/
+│   │   └── db.js
 │   ├── app.js
-│   ├── server.js
-│   └── .env.example
+│   └── server.js
 │
 ├── frontend/
 │   ├── index.html
@@ -171,30 +155,17 @@ AI-Expense-Tracker/
 Make sure you have installed:
 
 Node.js
-
 npm
-
 Git
 
-A GitHub account
-
+A MongoDB Atlas database
 An OpenRouter/OpenAI-compatible API key for AI features
-
-Check Node.js:
-
-node --version
-
-Check npm:
-
-npm --version
 
 🚀 Run Locally
 
 1. Clone the repository
 
 git clone https://github.com/Sujalyadav-150/Expense-tracker-app.git
-
-Move into the project:
 
 cd Expense-tracker-app
 
@@ -208,12 +179,14 @@ Create:
 
 backend/.env
 
-Use backend/.env.example as a template:
+Use backend/.env.example as a template.
 
+Required production-style variables include:
+
+MONGODB_URI=mongodb+srv://USERNAME:PASSWORD@CLUSTER.mongodb.net/expense_tracker
 OPENAI_API_KEY=your_api_key_here
 OPENAI_BASE_URL=https://openrouter.ai/api/v1
 OPENAI_MODEL=openai/gpt-4o-mini
-PORT=5000
 JWT_SECRET=replace_with_a_long_random_secret
 PREMIUM_EMAILS=premium@example.com
 CORS_ORIGINS=http://localhost:5173
@@ -229,8 +202,6 @@ The backend will run on:
 http://localhost:5000
 
 5. Start the frontend
-
-The frontend uses Vite. Run:
 
 npm run build
 
@@ -264,23 +235,7 @@ Authorization: Bearer <JWT_TOKEN>
 
 🤖 AI Expense Categorization
 
-If the user does not manually select a category, the application sends the expense description to the backend AI service.
-
-Example:
-
-Description:
-"Pizza and cold drink"
-
-AI Category:
-Food
-
-Another example:
-
-Description:
-"Uber ride to office"
-
-AI Category:
-Travel
+If the user does not manually select a category, the application can use the backend AI service to suggest a category.
 
 If AI categorization fails, the application safely falls back to:
 
@@ -290,16 +245,6 @@ Other
 
 The application can analyze stored expenses and generate an AI-based spending insight.
 
-Example types of insights:
-
-Spending patterns
-
-Frequently used categories
-
-High spending areas
-
-General suggestions for managing expenses
-
 👑 Premium Leaderboard
 
 Premium users can access the spending leaderboard.
@@ -308,132 +253,68 @@ Premium access is configured using:
 
 PREMIUM_EMAILS=premium@example.com
 
-Multiple premium emails can be configured using commas:
-
-PREMIUM_EMAILS=user1@example.com,user2@example.com
-
-The leaderboard calculates total expenses per user and ranks them by spending.
+Multiple premium emails can be configured using commas.
 
 🔌 REST API
 
 Authentication
 
-Register
-
 POST /api/auth/register
-
-Request:
-
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-
-Login
 
 POST /api/auth/login
 
-Request:
-
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-
 Expenses
-
-Get Expenses
 
 GET /api/expenses
 
-Add Expense
-
 POST /api/expenses
-
-Request:
-
-{
-  "amount": 500,
-  "description": "Lunch",
-  "category": "Food"
-}
-
-Delete Expense
 
 DELETE /api/expenses/:id
 
 Premium Leaderboard
 
-GET /api/expenses/leaderboard
-
-Requires authentication and premium access.
+GET /api/leaderboard
 
 AI
 
-Categorize Expense
-
 POST /api/ai/categorize
 
-Request:
-
-{
-  "description": "Dinner at restaurant"
-}
-
-Spending Insight
-
 GET /api/ai/insight
+
+Health
+
+GET /api/health
+
+A successful production health response should report the backend status and, in the latest deployment, the database connection status.
 
 🌐 Deployment
 
 The project includes a vercel.json configuration for Vercel deployment.
 
-Build command:
+Production environment variables should be configured in Vercel:
 
-npm run build
-
-Output directory:
-
-frontend/dist
-
-The project also contains:
-
-api/index.js
-
-which provides the serverless API entry point for Vercel.
-
-Environment Variables
-
-Configure the required environment variables in the deployment platform:
-
+MONGODB_URI=your_mongodb_atlas_connection_string
 OPENAI_API_KEY=your_api_key
 OPENAI_BASE_URL=https://openrouter.ai/api/v1
 OPENAI_MODEL=openai/gpt-4o-mini
 JWT_SECRET=your_secure_secret
 PREMIUM_EMAILS=premium@example.com
-CORS_ORIGINS=https://your-frontend-domain.vercel.app
+CORS_ORIGINS=https://your-production-domain.vercel.app
 
 Do not expose private backend secrets in frontend environment variables.
 
+MongoDB Atlas must also allow connections from the deployed serverless application through its Network Access configuration.
+
 🔒 Security
 
-The project includes several security-related practices:
-
 Password hashing with bcryptjs
-
 JWT authentication
-
 Backend-only AI API key
-
 .env excluded from Git
-
-SQLite database files excluded from Git
-
+MongoDB credentials excluded from Git
 CORS configuration
-
 Input validation
-
-Protected premium API endpoint
+Protected API endpoints
 
 Important
 
@@ -446,28 +327,22 @@ database credentials
 
 to GitHub.
 
+📌 Performance
+
+The backend uses cached MongoDB connections for serverless invocations, indexed expense history queries, direct expense creation responses, and short-lived leaderboard caching to reduce unnecessary database work.
+
 📌 Future Improvements
 
 Possible improvements include:
 
 Edit expense functionality
-
 Monthly/yearly expense reports
-
 Expense charts and visual analytics
-
 Budget limits and notifications
-
 Password reset through email
-
 Refresh-token based authentication
-
-PostgreSQL/MySQL production database
-
 More advanced AI financial recommendations
-
 Export expenses to CSV/PDF
-
 Improved role and permission management
 
 👨‍💻 Author
@@ -479,7 +354,3 @@ https://github.com/Sujalyadav-150
 
 Project Repository:
 https://github.com/Sujalyadav-150/Expense-tracker-app
-
-⭐ Support
-
-If you find this project useful, consider giving the repository a ⭐ on GitHub.
