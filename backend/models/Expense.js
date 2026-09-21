@@ -34,7 +34,8 @@ const expenseSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-expenseSchema.index({ email: 1 });
+// Covers the most common expense-list query: one user, newest first.
+expenseSchema.index({ email: 1, createdAt: -1 });
 expenseSchema.index({ id: 1 });
 
 module.exports = mongoose.models.Expense || mongoose.model("Expense", expenseSchema);
