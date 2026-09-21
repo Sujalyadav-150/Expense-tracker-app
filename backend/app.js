@@ -9,6 +9,7 @@ const aiRoutes = require("./routes/aiRoutes");
 const expenseController = require("./controllers/expenseController");
 const aiController = require("./controllers/aiController");
 const authMiddleware = require("./middleware/auth");
+const { isConnected } = require("./config/database");
 
 const app = express();
 
@@ -51,7 +52,8 @@ app.use(express.static(path.join(__dirname, "../frontend")));
 app.get("/api/health", (req, res) => {
   return res.status(200).json({
     success: true,
-    message: "Backend is running",
+    message: "Backend and database are running",
+    database: isConnected ? "connected" : "not connected",
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development"
   });
