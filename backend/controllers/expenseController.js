@@ -25,20 +25,9 @@ exports.createExpense = async (req, res) => {
       return res.status(400).json({ success: false, message: "Valid amount and description are required." });
     }
 
-    let finalCategory = category;
-    let finalSource = categorySource || "fallback";
+    let finalCategory = category || "Other";
+    let finalSource = categorySource || (category ? "user" : "fallback");
     let aiSuggested = false;
-
-    if (!finalCategory) {
-      try {
-        finalCategory = await categorizeExpense(description);
-        finalSource = "ai";
-        aiSuggested = true;
-      } catch (e) {
-        finalCategory = "Other";
-        finalSource = "fallback";
-      }
-    }
 
     const created = await db.addExpense({
       email,
