@@ -3,7 +3,7 @@ const { categorizeExpense } = require("../services/aiService");
 
 exports.getExpenses = async (req, res) => {
   try {
-    const email = req.user?.email || String(req.query.email || "").trim().toLowerCase();
+    const email = req.user.email;
     if (!email) {
       return res.json([]);
     }
@@ -18,7 +18,7 @@ exports.getExpenses = async (req, res) => {
 exports.createExpense = async (req, res) => {
   try {
     const { amount, description, category, categorySource } = req.body;
-    const email = req.user?.email || String(req.body.email || "").trim().toLowerCase();
+    const email = req.user.email;
     const numericAmount = Number(amount);
 
     if (!email || !Number.isFinite(numericAmount) || numericAmount <= 0 || !String(description || "").trim()) {
@@ -59,7 +59,7 @@ exports.createExpense = async (req, res) => {
 
 exports.deleteExpense = async (req, res) => {
   try {
-    const email = req.user?.email || String(req.query.email || "").trim().toLowerCase();
+    const email = req.user.email;
     const rawId = String(req.params.id || "").trim();
 
     if (!email || !rawId) {
