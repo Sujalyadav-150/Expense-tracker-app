@@ -17,7 +17,7 @@ exports.categorize = async (req, res) => {
 
 exports.insight = async (req, res) => {
   try {
-    const email = req.user?.email || String(req.query.email || "").trim().toLowerCase();
+    const email = req.user.email;
     const list = email ? await db.getExpenses(email) : [];
     const insightText = list.length ? await spendingInsight(list) : "Add expenses to get an AI spending insight.";
     return res.json({ insight: insightText, message: insightText });
