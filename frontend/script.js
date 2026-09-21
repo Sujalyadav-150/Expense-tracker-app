@@ -122,14 +122,15 @@ function renderExpenseItem(x) {
   const d = document.createElement("div");
   d.className = "expense";
   d.dataset.expenseId = String(x.id);
+  d.dataset.amount = String(Number(x.amount) || 0);
   d.innerHTML = `<div><b>${esc(x.description)}</b><div class="meta"><span class="cat">${esc(x.category)}</span>${x.aiSuggested ? '<span class="ai"> • AI suggested</span>' : ""} • ${new Date(x.createdAt || Date.now()).toLocaleDateString()}</div></div><div><b>₹${(+x.amount).toFixed(2)}</b> <button class="del" onclick="del('${x.id}')">Delete</button></div>`;
   return d;
 }
 
 function updateTotalFromList() {
   if (!list || !total) return;
-  const amounts = [...list.querySelectorAll(".expense b:last-of-type")]
-    .map(el => Number(el.textContent.replace(/[₹,]/g, "")) || 0);
+  const amounts = [...list.querySelectorAll(".expense")]
+    .map(el => Number(el.dataset.amount) || 0);
   const sum = amounts.reduce((a, b) => a + b, 0);
   total.textContent = `Total: ₹${sum.toFixed(2)}`;
 }
