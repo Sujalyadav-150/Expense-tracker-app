@@ -28,6 +28,7 @@ async function apiJson(url, options = {}) {
   return result;
 }
 
+let currentExpenses = [];
 let predictedCategory = null;
 let predictedDescription = "";
 let predictedSource = "fallback";
@@ -92,8 +93,9 @@ async function loadExpenses() {
     headers: authHeaders()
   });
   const list = Array.isArray(result) ? result : [];
-  renderExpenses(list);
-  updateTotalExpense(list);
+  currentExpenses = list;
+  renderExpenses(currentExpenses);
+  updateTotalExpense(currentExpenses);
 }
 
 async function suggestCategory() {
@@ -164,8 +166,17 @@ form.addEventListener("submit", async (event) => {
     predictedDescription = "";
     predictedSource = "fallback";
     aiSuggestion.textContent = "AI category will appear here.";
-    await loadExpenses();
-    await loadLeaderboard();
+    // The API returns the newly-created expense, so update the UI immediately
+    // instead of waiting for two extra network/database requests.
+    if (result && result.id) {
+      currentExpenses = [result, ...currentExpenses];
+      renderExpenses(currentExpenses);
+      updateTotalExpense(currentExpenses);
+    }
+    // Refresh leaderboard in the background; it must not block the add flow.
+    loadLeaderboard().catch((error) => {
+      if (leaderboardMessage) leaderboardMessage.textContent = error.message;
+    });
   } catch (error) {
     window.alert(error.message);
   } finally {
