@@ -8,6 +8,26 @@ const leaderboardMessage = document.getElementById("leaderboardMessage");
 const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser") || localStorage.getItem("expenseTrackerUser") || "null");
 const authToken = localStorage.getItem("authToken") || localStorage.getItem("expenseTrackerToken");
 
+function clearStoredAuth() {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("expenseTrackerToken");
+  localStorage.removeItem("loggedInUser");
+  localStorage.removeItem("expenseTrackerUser");
+}
+
+async function apiJson(url, options = {}) {
+  const response = await fetch(url, options);
+  let result = {};
+  try { result = await response.json(); } catch {}
+  if (response.status === 401) {
+    clearStoredAuth();
+    window.location.href = "login.html";
+    throw new Error("Your session expired. Please login again.");
+  }
+  if (!response.ok) throw new Error(result.message || "Request failed.");
+  return result;
+}
+
 let predictedCategory = null;
 let predictedDescription = "";
 let predictedSource = "fallback";
@@ -57,26 +77,20 @@ async function deleteExpense(expenseId) {
     return;
   }
 
-  const queryEmail = loggedInUser?.email ? `?email=${encodeURIComponent(loggedInUser.email)}` : "";
-  const response = await fetch(`/api/expenses/${expenseId}${queryEmail}`, {
+  const result = await apiJson(`/api/expenses/${encodeURIComponent(expenseId)}`, {
     method: "DELETE",
     headers: authHeaders()
   });
-  const result = await response.json();
 
-  if (!response.ok) {
-    throw new Error(result.message || "Could not delete expense.");
-  }
-
-  await Promise.all([loadExpenses(), loadLeaderboard()]);
+  await loadExpenses();
+  await loadLeaderboard();
 }
 
 async function loadExpenses() {
   if (!loggedInUser?.email) return;
-  const response = await fetch(`/api/expenses?email=${encodeURIComponent(loggedInUser.email)}`, {
+  const result = await apiJson("/api/expenses", {
     headers: authHeaders()
   });
-  const result = await response.json();
   const list = Array.isArray(result) ? result : [];
   renderExpenses(list);
   updateTotalExpense(list);
@@ -93,16 +107,11 @@ async function suggestCategory() {
   }
 
   aiSuggestion.textContent = "AI is thinking...";
-  const response = await fetch("/api/categorize-expense", {
+  const result = await apiJson("/api/categorize-expense", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ description })
   });
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Could not suggest a category.");
-  }
 
   predictedCategory = result.category;
   predictedDescription = description;
@@ -111,14 +120,9 @@ async function suggestCategory() {
 }
 
 async function loadLeaderboard() {
-  const response = await fetch("/api/leaderboard?limit=5", {
+  const result = await apiJson("/api/leaderboard?limit=5", {
     headers: authHeaders()
   });
-  const result = await response.json();
-  if (!response.ok) {
-    if (leaderboardMessage) leaderboardMessage.textContent = result.message || "Could not load leaderboard.";
-    return;
-  }
 
   const list = result.leaderboard || Array.isArray(result) ? (result.leaderboard || result) : [];
   if (leaderboardPreview) {
@@ -149,23 +153,19 @@ form.addEventListener("submit", async (event) => {
   };
 
   try {
-    const response = await fetch("/api/expenses", {
+    const result = await apiJson("/api/expenses", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify(expense)
     });
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || "Could not add expense.");
-    }
 
     form.reset();
     predictedCategory = null;
     predictedDescription = "";
     predictedSource = "fallback";
     aiSuggestion.textContent = "AI category will appear here.";
-    await Promise.all([loadExpenses(), loadLeaderboard()]);
+    await loadExpenses();
+    await loadLeaderboard();
   } catch (error) {
     window.alert(error.message);
   } finally {
@@ -202,10 +202,7 @@ Promise.all([loadExpenses(), loadLeaderboard()]).catch((error) => {
 const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {
   logoutBtn.addEventListener("click", () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("expenseTrackerToken");
-    localStorage.removeItem("loggedInUser");
-    localStorage.removeItem("expenseTrackerUser");
+    clearStoredAuth();
     window.location.href = "login.html";
   });
 }
