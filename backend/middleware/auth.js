@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const db = require("../utils/db");
 
-const JWT_SECRET = process.env.JWT_SECRET || "expense_tracker_jwt_secret_key_2026_stable_fallback";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 module.exports = async function auth(req, res, next) {
   const header = req.headers.authorization || "";
