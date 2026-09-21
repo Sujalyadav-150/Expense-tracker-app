@@ -118,28 +118,37 @@ if (leaderboardBtn) {
   });
 }
 
+function renderExpenseItem(x) {
+  const d = document.createElement("div");
+  d.className = "expense";
+  d.dataset.expenseId = String(x.id);
+  d.innerHTML = `<div><b>${esc(x.description)}</b><div class="meta"><span class="cat">${esc(x.category)}</span>${x.aiSuggested ? '<span class="ai"> • AI suggested</span>' : ""} • ${new Date(x.createdAt || Date.now()).toLocaleDateString()}</div></div><div><b>₹${(+x.amount).toFixed(2)}</b> <button class="del" onclick="del('${x.id}')">Delete</button></div>`;
+  return d;
+}
+
+function updateTotalFromList() {
+  if (!list || !total) return;
+  const amounts = [...list.querySelectorAll(".expense b:last-of-type")]
+    .map(el => Number(el.textContent.replace(/[₹,]/g, "")) || 0);
+  const sum = amounts.reduce((a, b) => a + b, 0);
+  total.textContent = `Total: ₹${sum.toFixed(2)}`;
+}
+
 async function load() {
   if (!currentUser || !list) return;
   try {
-    const queryEmail = currentUser.email ? `?email=${encodeURIComponent(currentUser.email)}` : "";
-    const xs = await request(`/api/expenses${queryEmail}`, { headers: authHeaders() });
-    let t = 0;
-    list.innerHTML = "";
+    const xs = await request("/api/expenses", { headers: authHeaders() });
     const items = Array.isArray(xs) ? xs : [];
+    list.innerHTML = "";
     if (items.length === 0) {
       list.innerHTML = '<div class="empty-state">No expenses added yet.</div>';
     } else {
-      items.forEach(x => {
-        t += +x.amount;
-        const d = document.createElement("div");
-        d.className = "expense";
-        d.innerHTML = `<div><b>${esc(x.description)}</b><div class="meta"><span class="cat">${esc(x.category)}</span>${x.aiSuggested ? '<span class="ai"> • AI suggested</span>' : ""} • ${new Date(x.createdAt || Date.now()).toLocaleDateString()}</div></div><div><b>₹${(+x.amount).toFixed(2)}</b> <button class="del" onclick="del('${x.id}')">Delete</button></div>`;
-        list.appendChild(d);
-      });
+      items.forEach(x => list.appendChild(renderExpenseItem(x)));
     }
-    if (total) total.textContent = `Total: ₹${t.toFixed(2)}`;
+    updateTotalFromList();
   } catch (error) {
     list.innerHTML = `<div class="empty-state">${esc(error.message)}</div>`;
+    if (total) total.textContent = "Total: ₹0.00";
   }
 }
 
@@ -209,37 +218,68 @@ if (registerBtn) {
 if (form) {
   form.onsubmit = async e => {
     e.preventDefault();
-    msg.textContent = "Categorizing...";
+    const numericAmount = Number(amount.value);
+    const textDescription = description.value.trim();
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0 || !textDescription) {
+      msg.textContent = "Enter a valid amount and description.";
+      return;
+    }
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+    msg.textContent = "Adding expense...";
+
     const body = {
-      amount: +amount.value,
-      description: description.value.trim(),
-      email: currentUser?.email
+      amount: numericAmount,
+      description: textDescription
     };
     if (category && category.value) body.category = category.value;
+
     try {
+      // The API response already contains the saved expense, so don't make
+      // a second GET request. This makes the UI update immediately after save.
       const x = await request("/api/expenses", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify(body)
       });
+
+      if (list) {
+        const empty = list.querySelector(".empty-state");
+        if (empty) empty.remove();
+        list.prepend(renderExpenseItem(x));
+      }
+      updateTotalFromList();
       msg.textContent = x.category ? `Category: ${x.category}` : "Expense added.";
       form.reset();
-      load();
     } catch (error) {
       msg.textContent = error.message;
+    } finally {
+      if (submitButton) submitButton.disabled = false;
     }
   };
 }
 
 async function del(id) {
-  if (confirm("Delete this expense?")) {
-    try {
-      const queryEmail = currentUser?.email ? `?email=${encodeURIComponent(currentUser.email)}` : "";
-      await request("/api/expenses/" + id + queryEmail, { method: "DELETE", headers: authHeaders() });
-      load();
-    } catch (error) {
-      if (msg) msg.textContent = error.message;
+  if (!confirm("Delete this expense?")) return;
+
+  const row = list?.querySelector(`.expense[data-expense-id="${CSS.escape(String(id))}"]`);
+  if (row) row.style.opacity = "0.5";
+
+  try {
+    await request("/api/expenses/" + encodeURIComponent(id), {
+      method: "DELETE",
+      headers: authHeaders()
+    });
+    if (row) row.remove();
+    if (list && !list.querySelector(".expense")) {
+      list.innerHTML = '<div class="empty-state">No expenses added yet.</div>';
     }
+    updateTotalFromList();
+    if (msg) msg.textContent = "Expense deleted.";
+  } catch (error) {
+    if (row) row.style.opacity = "1";
+    if (msg) msg.textContent = error.message;
   }
 }
 window.del = del;
