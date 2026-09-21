@@ -73,10 +73,13 @@ async function updateUserPassword(email, hashedPassword) {
 async function getExpenses(email) {
   const normEmail = String(email || "").trim().toLowerCase();
   if (await ensureDB()) {
-    return (await Expense.find({ email: normEmail }).sort({ createdAt: -1 }).lean()).map(e => ({
-      id: e.id ?? String(e._id), amount: e.amount, description: e.description, category: e.category,
-      categorySource: e.categorySource || "fallback", aiSuggested: !!e.aiSuggested, createdAt: e.createdAt
-    }));
+    return (await Expense.find({ email: normEmail })
+      .select({ _id: 0, id: 1, amount: 1, description: 1, category: 1, categorySource: 1, aiSuggested: 1, createdAt: 1 })
+      .sort({ createdAt: -1 })
+      .lean()).map(e => ({
+        id: e.id ?? String(e._id), amount: e.amount, description: e.description, category: e.category,
+        categorySource: e.categorySource || "fallback", aiSuggested: !!e.aiSuggested, createdAt: e.createdAt
+      }));
   }
   if (isProduction) throw new Error("MongoDB connection is required in production.");
   return readJson(expensesFile, {})[normEmail] || [];
@@ -88,11 +91,18 @@ function makeExpenseId() {
   return Date.now() * 1000 + Math.floor(Math.random() * 1000);
 }
 
+const leaderboardCache = {
+  value: null,
+  expiresAt: 0,
+  limit: 0
+};
+
 async function addExpense({ email, amount, description, category, categorySource, aiSuggested = false }) {
   const normEmail = String(email || "").trim().toLowerCase();
   const id = makeExpenseId();
   if (await ensureDB()) {
     const e = await Expense.create({ id, email: normEmail, amount: Number(amount), description: String(description).trim(), category: String(category), categorySource: categorySource || "fallback", aiSuggested: !!aiSuggested });
+    leaderboardCache.value = null;
     return { id:e.id, amount:e.amount, description:e.description, category:e.category, categorySource:e.categorySource, aiSuggested:e.aiSuggested, createdAt:e.createdAt };
   }
   if (isProduction) throw new Error("MongoDB connection is required in production.");
@@ -101,12 +111,22 @@ async function addExpense({ email, amount, description, category, categorySource
 }
 
 async function deleteExpense(email, expenseId) {
-  const normEmail=String(email||"").trim().toLowerCase(), id=String(expenseId||"").trim(), n=Number(id);
+  const normEmail=String(email||"").trim().toLowerCase();
+  const id=String(expenseId||"").trim();
+  const n=Number(id);
   if (await ensureDB()) {
+    // Current records use the numeric/string "id" field. Older deployments
+    // sometimes sent MongoDB _id values, so only query _id when the value
+    // is a valid ObjectId. Never pass values like "3" to _id.
     const conditions=[{email:normEmail,id}];
     if (/^\d+$/.test(id)) conditions.push({email:normEmail,id:n});
+    if (/^[a-fA-F0-9]{24}$/.test(id)) {
+      conditions.push({email:normEmail,_id:id});
+    }
     const r=await Expense.deleteOne({$or:conditions});
-    if(!r.deletedCount){const e=new Error("Expense not found.");e.statusCode=404;throw e;} return true;
+    if(!r.deletedCount){const e=new Error("Expense not found.");e.statusCode=404;throw e;}
+    leaderboardCache.value = null;
+    return true;
   }
   if(isProduction) throw new Error("MongoDB connection is required in production.");
   const map=readJson(expensesFile,{}), list=map[normEmail]||[], i=list.findIndex(e=>String(e.id)===id);
@@ -115,6 +135,11 @@ async function deleteExpense(email, expenseId) {
 
 async function getLeaderboard(limit=10) {
   if (await ensureDB()) {
+    const now = Date.now();
+    if (leaderboardCache.value && leaderboardCache.expiresAt > now && leaderboardCache.limit >= limit) {
+      return leaderboardCache.value.slice(0, limit);
+    }
+
     const rows=await Expense.aggregate([
       {$group:{_id:"$email",totalExpense:{$sum:"$amount"}}},
       {$sort:{totalExpense:-1}},
@@ -123,7 +148,11 @@ async function getLeaderboard(limit=10) {
       {$unwind:"$user"},
       {$project:{_id:0,name:"$user.name",email:"$_id",totalExpense:1}}
     ]);
-    return rows.map((r,i)=>({rank:i+1,name:r.name||"User",email:r.email,totalExpense:Number(r.totalExpense||0)}));
+    const result = rows.map((r,i)=>({rank:i+1,name:r.name||"User",email:r.email,totalExpense:Number(r.totalExpense||0)}));
+    leaderboardCache.value = result;
+    leaderboardCache.limit = limit;
+    leaderboardCache.expiresAt = Date.now() + 10000;
+    return result;
   }
   if(isProduction) throw new Error("MongoDB connection is required in production.");
   const users=readJson(usersFile,{}), expenses=readJson(expensesFile,{});
