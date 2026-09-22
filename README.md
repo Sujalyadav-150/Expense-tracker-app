@@ -52,14 +52,6 @@ Manual category selection is also available
 
 AI requests are handled by the backend so the API key is not exposed in the frontend
 
-👑 Premium Feature
-
-Premium-user category/spending leaderboard
-
-Premium access controlled through configured email addresses
-
-Leaderboard ranks users according to total spending
-
 🗄️ Database
 
 MongoDB Atlas
@@ -184,9 +176,7 @@ Use backend/.env.example as a template.
 Required production-style variables include:
 
 MONGODB_URI=mongodb+srv://USERNAME:PASSWORD@CLUSTER.mongodb.net/expense_tracker
-OPENAI_API_KEY=your_api_key_here
-OPENAI_BASE_URL=https://openrouter.ai/api/v1
-OPENAI_MODEL=openai/gpt-4o-mini
+OPENROUTER_API_KEY=your_openrouter_api_key
 JWT_SECRET=replace_with_a_long_random_secret
 PREMIUM_EMAILS=premium@example.com
 CORS_ORIGINS=http://localhost:5173
@@ -245,16 +235,6 @@ Other
 
 The application can analyze stored expenses and generate an AI-based spending insight.
 
-👑 Premium Leaderboard
-
-Premium users can access the spending leaderboard.
-
-Premium access is configured using:
-
-PREMIUM_EMAILS=premium@example.com
-
-Multiple premium emails can be configured using commas.
-
 🔌 REST API
 
 Authentication
@@ -272,8 +252,6 @@ POST /api/expenses
 DELETE /api/expenses/:id
 
 Premium Leaderboard
-
-GET /api/leaderboard
 
 AI
 
@@ -294,12 +272,8 @@ The project includes a vercel.json configuration for Vercel deployment.
 Production environment variables should be configured in Vercel:
 
 MONGODB_URI=your_mongodb_atlas_connection_string
-OPENAI_API_KEY=your_api_key
-OPENAI_BASE_URL=https://openrouter.ai/api/v1
-OPENAI_MODEL=openai/gpt-4o-mini
 JWT_SECRET=your_secure_secret
-PREMIUM_EMAILS=premium@example.com
-CORS_ORIGINS=https://your-production-domain.vercel.app
+OPENROUTER_API_KEY=your_openrouter_api_key
 
 Do not expose private backend secrets in frontend environment variables.
 
@@ -329,7 +303,7 @@ to GitHub.
 
 📌 Performance
 
-The backend uses cached MongoDB connections for serverless invocations, indexed expense history queries, direct expense creation responses, and short-lived leaderboard caching to reduce unnecessary database work.
+The backend reuses cached MongoDB connections for serverless invocations and returns saved expense records directly after creation so the dashboard updates immediately.
 
 📌 Future Improvements
 

@@ -1,10 +1,6 @@
 const API = "/api";
 const form = document.getElementById("form");
 const msg = document.getElementById("msg");
-const leaderboardBtn = document.getElementById("leaderboardBtn");
-const leaderboardCard = document.getElementById("leaderboardCard");
-const premiumRow = document.getElementById("premiumRow");
-const premiumRequired = document.getElementById("premiumRequired");
 const authScreen = document.getElementById("authScreen");
 const trackerApp = document.getElementById("trackerApp");
 const authForm = document.getElementById("authForm");
@@ -20,8 +16,6 @@ const list = document.getElementById("list");
 const total = document.getElementById("total");
 const insight = document.getElementById("insight");
 const insightBtn = document.getElementById("insightBtn");
-const leaderboardTotal = document.getElementById("leaderboardTotal");
-const leaderboard = document.getElementById("leaderboard");
 const amount = document.getElementById("amount");
 const description = document.getElementById("description");
 const category = document.getElementById("category");
@@ -100,24 +94,6 @@ if (logoutBtn) {
   });
 }
 
-if (leaderboardBtn) {
-  leaderboardBtn.addEventListener("click", async () => {
-    const isHidden = leaderboardCard.hidden;
-    if (isHidden) {
-      leaderboardBtn.disabled = true;
-      leaderboardBtn.textContent = "Loading...";
-      await loadLeaderboard();
-      leaderboardBtn.disabled = false;
-      leaderboardCard.hidden = false;
-      leaderboardBtn.textContent = "Hide Leaderboard";
-      leaderboardCard.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
-      leaderboardCard.hidden = true;
-      leaderboardBtn.textContent = "Show Leaderboard";
-    }
-  });
-}
-
 function renderExpenseItem(x) {
   const d = document.createElement("div");
   d.className = "expense";
@@ -150,23 +126,6 @@ async function load() {
   } catch (error) {
     list.innerHTML = `<div class="empty-state">${esc(error.message)}</div>`;
     if (total) total.textContent = "Total: ₹0.00";
-  }
-}
-
-async function loadLeaderboard() {
-  if (!leaderboard) return;
-  try {
-    const data = await request("/api/leaderboard?limit=10", { headers: authHeaders() });
-    const listData = data.leaderboard || [];
-    if (leaderboardTotal) leaderboardTotal.textContent = `${listData.length} users`;
-    if (!listData.length) {
-      leaderboard.innerHTML = '<div class="empty-state">No user expenses yet.</div>';
-      return;
-    }
-    const max = listData[0].totalExpense || 1;
-    leaderboard.innerHTML = `<div class="rank-list">${listData.map(row => `<div class="rank-row"><span class="rank-number">#${row.rank}</span><span class="rank-category">${esc(row.name || row.email)}</span><span class="rank-track"><i style="width:${Math.max(8, (row.totalExpense / max) * 100)}%"></i></span><b>₹${row.totalExpense.toFixed(2)}</b></div>`).join("")}</div>`;
-  } catch (e) {
-    leaderboard.innerHTML = `<div class="empty-state">${esc(e.message)}</div>`;
   }
 }
 

@@ -2,10 +2,6 @@ const mongoose = require("mongoose");
 
 let cachedPromise = null;
 
-function isProduction() {
-  return Boolean(process.env.VERCEL || process.env.VERCEL_ENV || process.env.NODE_ENV === "production");
-}
-
 async function connectDB() {
   if (mongoose.connection.readyState === 1) return true;
 
@@ -17,17 +13,13 @@ async function connectDB() {
     }
   }
 
-  const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  const uri = process.env.MONGODB_URI;
   if (!uri) {
-    if (isProduction()) {
-      throw new Error("MONGODB_URI is required in production.");
-    }
-    console.warn("MONGODB_URI is not set. Local development database fallback may be used by callers.");
-    return false;
+    throw new Error("MONGODB_URI is required.");
   }
 
-  if (isProduction() && (uri.includes("localhost") || uri.includes("127.0.0.1"))) {
-    throw new Error("A localhost MongoDB URI cannot be used in production.");
+  if (!uri.startsWith("mongodb+srv://")) {
+    throw new Error("MONGODB_URI must be a MongoDB Atlas SRV connection string.");
   }
 
   cachedPromise = mongoose.connect(uri, {

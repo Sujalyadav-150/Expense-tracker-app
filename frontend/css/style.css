@@ -37,10 +37,6 @@ input:focus { outline: 2px solid var(--warm); border-color: var(--accent); }
 button { color: white; background: var(--accent); border-color: var(--accent); cursor: pointer; font-family: Arial, sans-serif; font-weight: 700; }
 button:hover { background: #18563c; }
 .ai-suggestion { min-height: 20px; margin: 2px 0 8px; color: var(--accent); font: .83rem Arial, sans-serif; }
-.leaderboard-list { display: grid; gap: 0; padding: 0; margin: 26px 0 0; list-style: none; }
-.leaderboard-list li { display: flex; justify-content: space-between; gap: 14px; padding: 15px 0; border-bottom: 1px solid var(--line); font: .95rem Arial, sans-serif; }
-.leaderboard-list li:last-child { border-bottom: 0; }
-.leaderboard-list strong { display: inline-grid; place-items: center; width: 25px; height: 25px; margin-right: 7px; border-radius: 50%; color: var(--accent); background: var(--accent-soft); font-size: .75rem; }
 .table-wrap { overflow-x: auto; margin-top: 22px; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 14px 12px; border-bottom: 1px solid var(--line); text-align: left; font-family: Arial, sans-serif; }

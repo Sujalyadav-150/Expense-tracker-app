@@ -6,9 +6,6 @@ require("dotenv").config();
 const authRoutes = require("./routes/authRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
 const aiRoutes = require("./routes/aiRoutes");
-const expenseController = require("./controllers/expenseController");
-const aiController = require("./controllers/aiController");
-const authMiddleware = require("./middleware/auth");
 const database = require("./config/database");
 
 const app = express();
@@ -54,7 +51,6 @@ app.get("/api/health", (req, res) => {
     success: true,
     message: "Backend and database are running",
     database: database.isConnected ? "connected" : "not connected",
-    version: "2026-09-21-expense-fix",
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development"
   });
@@ -65,9 +61,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/ai", aiRoutes);
 
-// Direct alias routes for frontend compatibility
-app.get("/api/leaderboard", authMiddleware.optional, expenseController.getLeaderboard);
-app.post("/api/categorize-expense", aiController.categorize);
+// Keep the legacy categorization URL working for older frontend bundles.
+app.post("/api/categorize-expense", require("./controllers/aiController").categorize);
 
 // Serve static frontend for root
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "../frontend/login.html")));
@@ -82,8 +77,4 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3001;
-if (require.main === module) {
-  app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
-}
-
 module.exports = app;

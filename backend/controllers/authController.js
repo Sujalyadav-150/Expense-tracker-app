@@ -5,9 +5,9 @@ const db = require("../utils/db");
 const PasswordResetToken = require("../models/PasswordResetToken");
 
 const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is required.");
 
 function generateToken(user) {
+  if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is required.");
   return jwt.sign(
     { id: user.id || user._id || user.email, email: user.email, name: user.name || "User" },
     JWT_SECRET,
@@ -59,6 +59,9 @@ exports.register = async (req, res) => {
     });
   } catch (error) {
     console.error("signup/register error:", error.message);
+    if (db.isDatabaseError(error)) {
+      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    }
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
@@ -73,6 +76,9 @@ exports.login = async (req, res) => {
     const normalizedEmail = String(email || "").trim().toLowerCase();
     if (!normalizedEmail || !password) {
       return res.status(400).json({ success: false, message: "Email and password are required." });
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ success: false, message: "Please provide a valid email address." });
     }
 
     const user = await db.getUser(normalizedEmail);
@@ -94,9 +100,12 @@ exports.login = async (req, res) => {
     });
   } catch (error) {
     console.error("login error:", error.message);
+    if (db.isDatabaseError(error)) {
+      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    }
     return res.status(500).json({
       success: false,
-      message: "Internal server error. Please try again."
+      message: "Server error. Please try again."
     });
   }
 };
@@ -128,6 +137,9 @@ exports.forgotPassword = async (req, res) => {
     });
   } catch (error) {
     console.error("forgotPassword error:", error.message);
+    if (db.isDatabaseError(error)) {
+      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    }
     return res.status(500).json({ success: false, message: "Internal server error." });
   }
 };
@@ -157,6 +169,9 @@ exports.resetPassword = async (req, res) => {
     return res.status(200).json({ success: true, message: "Password reset successfully." });
   } catch (error) {
     console.error("resetPassword error:", error.message);
+    if (db.isDatabaseError(error)) {
+      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    }
     return res.status(500).json({ success: false, message: "Internal server error." });
   }
 };

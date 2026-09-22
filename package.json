@@ -8,8 +8,8 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "start": "node backend/app.js",
-    "dev": "node backend/app.js"
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -1,8 +1,8 @@
 const OpenAI=require("openai");
 let client;
 const categories=["Food","Travel","Shopping","Bills","Entertainment","Health","Education","Salary","Other"];
-const model=process.env.OPENAI_MODEL||"gpt-4o-mini";
-const apiKey=process.env.OPENAI_API_KEY||process.env.OPENROUTER_API_KEY||process.env.openrouter_key;
+const model=process.env.OPENROUTER_MODEL||"openai/gpt-4o-mini";
+const apiKey=process.env.OPENROUTER_API_KEY;
 
 function getClient(){
  if(!client)client=new OpenAI({

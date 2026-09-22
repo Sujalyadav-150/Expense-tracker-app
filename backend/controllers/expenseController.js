@@ -1,6 +1,18 @@
 const db = require("../utils/db");
 const { categorizeExpense } = require("../services/aiService");
 
+const CATEGORIES = new Set([
+  "Food",
+  "Travel",
+  "Shopping",
+  "Bills",
+  "Entertainment",
+  "Health",
+  "Education",
+  "Salary",
+  "Other"
+]);
+
 exports.getExpenses = async (req, res) => {
   try {
     const email = req.user.email;
@@ -11,28 +23,41 @@ exports.getExpenses = async (req, res) => {
     return res.json(Array.isArray(list) ? list : []);
   } catch (error) {
     console.error("getExpenses error:", error.message);
+    if (db.isDatabaseError(error)) {
+      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    }
     return res.status(500).json({ success: false, message: "Could not load expenses." });
   }
 };
-
 exports.createExpense = async (req, res) => {
   try {
     const { amount, description, category, categorySource } = req.body;
     const email = req.user.email;
     const numericAmount = Number(amount);
 
-    if (!email || !Number.isFinite(numericAmount) || numericAmount <= 0 || !String(description || "").trim()) {
+    const trimmedDescription = String(description || "").trim();
+    const requestedCategory = category ? String(category).trim() : "Other";
+
+    if (
+      !email ||
+      !Number.isFinite(numericAmount) ||
+      numericAmount <= 0 ||
+      numericAmount > 1000000000 ||
+      !trimmedDescription ||
+      trimmedDescription.length > 500 ||
+      !CATEGORIES.has(requestedCategory)
+    ) {
       return res.status(400).json({ success: false, message: "Valid amount and description are required." });
     }
 
-    let finalCategory = category || "Other";
+    let finalCategory = requestedCategory;
     let finalSource = categorySource || (category ? "user" : "fallback");
     let aiSuggested = false;
 
     const created = await db.addExpense({
       email,
       amount: numericAmount,
-      description: String(description).trim(),
+      description: trimmedDescription,
       category: String(finalCategory),
       categorySource: finalSource,
       aiSuggested,
@@ -42,10 +67,15 @@ exports.createExpense = async (req, res) => {
     return res.status(201).json(created);
   } catch (error) {
     console.error("createExpense error:", error.message);
+    if (db.isDatabaseError(error)) {
+      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    }
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: "Invalid expense data." });
+    }
     return res.status(500).json({ success: false, message: error.message || "Could not add expense." });
   }
 };
-
 exports.deleteExpense = async (req, res) => {
   try {
     const email = req.user.email;
@@ -59,19 +89,11 @@ exports.deleteExpense = async (req, res) => {
     return res.json({ success: true, message: "Expense deleted successfully." });
   } catch (error) {
     console.error("deleteExpense error:", error.message);
+    if (db.isDatabaseError(error)) {
+      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    }
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({ success: false, message: error.message || "Expense not found." });
   }
 };
 
-exports.getLeaderboard = async (req, res) => {
-  try {
-    const requestedLimit = Number.parseInt(req.query.limit, 10);
-    const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 10;
-    const leaderboard = await db.getLeaderboard(limit);
-    return res.json({ leaderboard: Array.isArray(leaderboard) ? leaderboard : [] });
-  } catch (error) {
-    console.error("getLeaderboard error:", error.message);
-    return res.status(500).json({ success: false, message: "Could not load leaderboard." });
-  }
-};
