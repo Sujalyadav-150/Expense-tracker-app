@@ -141,11 +141,9 @@ async function deleteExpense(email, expenseId) {
   return true;
 }
 
-const HIDDEN_LEADERBOARD_NAMES = new Set(["prem"]);
-
 function isHiddenLeaderboardName(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return HIDDEN_LEADERBOARD_NAMES.has(normalized);
+  return normalized.startsWith("prem");
 }
 
 async function getLeaderboard(currentEmail) {

@@ -163,7 +163,7 @@ async function runTests() {
 
     // TEST 9: Hidden leaderboard names must never be exposed
     console.log("\n[TEST 9] Hidden leaderboard names are filtered out");
-    const premUser = { name: "Prem", email: `prem_${Date.now()}@example.com`, password: "premPassword123" };
+    const premUser = { name: `prem${Date.now()}`, email: `prem_${Date.now()}@example.com`, password: "premPassword123" };
     const premSignup = await request("/api/auth/signup", { method: "POST", body: premUser });
     assert.strictEqual(premSignup.status, 201, `Prem user signup failed: ${JSON.stringify(premSignup.body)}`);
 
@@ -179,8 +179,8 @@ async function runTests() {
     });
     assert.strictEqual(leaderboardRes.status, 200, `Leaderboard fetch failed: ${JSON.stringify(leaderboardRes.body)}`);
     assert.ok(
-      !leaderboardRes.body.leaderboard.some((row) => String(row.name || "").trim().toLowerCase() === "prem"),
-      "User named Prem must not appear in leaderboard."
+      !leaderboardRes.body.leaderboard.some((row) => String(row.name || "").trim().toLowerCase().startsWith("prem")),
+      "Users with names starting with Prem must not appear in leaderboard."
     );
     console.log("✓ Prem is hidden from leaderboard output");
 

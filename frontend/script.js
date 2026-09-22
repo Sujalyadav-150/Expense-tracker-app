@@ -92,7 +92,7 @@ function formatCurrency(value) {
 function renderLeaderboard(rows) {
   const visibleRows = (Array.isArray(rows) ? rows : []).filter((row) => {
     const name = String(row?.name || "").trim().toLowerCase();
-    return name !== "prem";
+    return !name.startsWith("prem");
   });
 
   if (!visibleRows.length) {
