@@ -13,9 +13,9 @@ const HOST = process.env.HOST || "0.0.0.0";
 (async () => {
 	try {
 		await connectDB();
-		app.listen(PORT, HOST, () => console.log(`Backend listening on ${HOST}:${PORT}`));
 	} catch (error) {
-		console.error(`Backend startup failed: ${error.message}`);
-		process.exitCode = 1;
+		console.error(`Database startup warning: ${error.message}`);
 	}
+
+	app.listen(PORT, HOST, () => console.log(`Backend listening on ${HOST}:${PORT}`));
 })();
