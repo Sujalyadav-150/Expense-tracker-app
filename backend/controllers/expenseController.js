@@ -54,6 +54,13 @@ exports.createExpense = async (req, res) => {
     let finalSource = categorySource || (category ? "user" : "fallback");
     let aiSuggested = false;
 
+    if (!category) {
+      const suggestion = await categorizeExpense(trimmedDescription);
+      finalCategory = suggestion.category;
+      finalSource = suggestion.source;
+      aiSuggested = suggestion.source === "ai";
+    }
+
     const created = await db.addExpense({
       email,
       amount: numericAmount,
