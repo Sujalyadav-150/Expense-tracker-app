@@ -1,13 +1,18 @@
-const OpenAI=require("openai");
+const OpenAI = require("openai");
 let client;
 const categories=["Food","Travel","Shopping","Bills","Entertainment","Health","Education","Salary","Other"];
 const model=process.env.OPENROUTER_MODEL||"openai/gpt-4o-mini";
 const apiKey=process.env.OPENROUTER_API_KEY;
 
 function getClient(){
+ if(!apiKey) return null;
  if(!client)client=new OpenAI({
   apiKey,
-  baseURL:process.env.OPENAI_BASE_URL||"https://openrouter.ai/api/v1",
+  baseURL:"https://openrouter.ai/api/v1",
+  defaultHeaders: {
+    "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "http://localhost:5000",
+    "X-Title": process.env.OPENROUTER_APP_NAME || "Expense Tracker"
+  },
   timeout:5000
  });
  return client;
@@ -34,24 +39,27 @@ function localCategory(description){
 }
 
 async function categorizeExpense(description){
- if(!apiKey)return localCategory(description);
+ if(!apiKey)return { category: localCategory(description), source: "local" };
  try{
-  const r=await getClient().responses.create({model,input:[
+  const r=await getClient().chat.completions.create({model,temperature:0,messages:[
    {role:"system",content:`Return ONLY one category from: ${categories.join(", ")}.`},
    {role:"user",content:description}
   ]});
-    const answer=r.output_text.trim().replace(/[^a-z]/gi,"").toLowerCase();
+    const answer=String(r.choices?.[0]?.message?.content || "").trim().replace(/[^a-z]/gi,"").toLowerCase();
     const category=categories.find(item=>item.toLowerCase()===answer);
-    return category||localCategory(description);
- }catch(e){return localCategory(description);}
+    return { category: category || localCategory(description), source: category ? "ai" : "local" };
+ }catch(e){return { category: localCategory(description), source: "local" };}
 }
 async function spendingInsight(expenses){
- if(!apiKey)return localInsight(expenses);
+ if(!apiKey)return { text: localInsight(expenses), source: "local" };
  const data=expenses.map(e=>({amount:e.amount,description:e.description,category:e.category}));
  try{
-  const r=await getClient().responses.create({model,input:`Give one practical spending insight in under 30 words. Data: ${JSON.stringify(data)}`});
-  return r.output_text.trim();
- }catch(e){return localInsight(expenses);}
+  const r=await getClient().chat.completions.create({model,temperature:0.2,max_tokens:80,messages:[
+   {role:"system",content:"Give one practical spending insight in under 30 words."},
+   {role:"user",content:JSON.stringify(data)}
+  ]});
+  return { text: String(r.choices?.[0]?.message?.content || "").trim() || localInsight(expenses), source: "ai" };
+ }catch(e){return { text: localInsight(expenses), source: "local" };}
 }
 
 function localInsight(expenses){
