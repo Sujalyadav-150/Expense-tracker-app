@@ -104,3 +104,16 @@ exports.deleteExpense = async (req, res) => {
   }
 };
 
+exports.getLeaderboard = async (req, res) => {
+  try {
+    const leaderboard = await db.getLeaderboard();
+    return res.json({ success: true, leaderboard });
+  } catch (error) {
+    console.error("getLeaderboard error:", error.message);
+    if (db.isDatabaseError(error)) {
+      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    }
+    return res.status(500).json({ success: false, message: "Unable to load leaderboard." });
+  }
+};
+

@@ -6,6 +6,8 @@ require("dotenv").config();
 const authRoutes = require("./routes/authRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
 const aiRoutes = require("./routes/aiRoutes");
+const expenseController = require("./controllers/expenseController");
+const authMiddleware = require("./middleware/auth");
 const database = require("./config/database");
 
 const app = express();
@@ -68,6 +70,7 @@ app.get("/api/health", async (req, res) => {
 // --- API Routes ---
 app.use("/api/auth", authRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.get("/api/leaderboard", authMiddleware, expenseController.getLeaderboard);
 app.use("/api/ai", aiRoutes);
 
 // Keep the legacy categorization URL working for older frontend bundles.

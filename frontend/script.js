@@ -19,6 +19,14 @@ const insightBtn = document.getElementById("insightBtn");
 const amount = document.getElementById("amount");
 const description = document.getElementById("description");
 const category = document.getElementById("category");
+const leaderboardRefresh = document.getElementById("leaderboardRefresh");
+const leaderboardStatus = document.getElementById("leaderboardStatus");
+const leaderboardSummary = document.getElementById("leaderboardSummary");
+const leaderboardTableWrap = document.getElementById("leaderboardTableWrap");
+const leaderboardBody = document.getElementById("leaderboardBody");
+const myRank = document.getElementById("myRank");
+const myTotalExpense = document.getElementById("myTotalExpense");
+const myExpenseCount = document.getElementById("myExpenseCount");
 
 const esc = x => { const d = document.createElement("div"); d.textContent = x; return d.innerHTML; };
 
@@ -75,6 +83,55 @@ function updatePremiumState() {
   const isLogged = Boolean(currentUser);
   if (authScreen) authScreen.hidden = isLogged;
   if (trackerApp) trackerApp.hidden = !isLogged;
+}
+
+function formatCurrency(value) {
+  return `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}
+
+function renderLeaderboard(rows) {
+  if (!rows.length) {
+    leaderboardTableWrap.hidden = true;
+    leaderboardSummary.hidden = true;
+    leaderboardStatus.textContent = "No users found.";
+    return;
+  }
+
+  leaderboardBody.innerHTML = rows.map((row) => {
+    const isCurrentUser = row.id === currentUser?.id;
+    return `<tr class="${isCurrentUser ? "current-user" : ""}">
+      <td data-label="Rank">#${row.rank}</td>
+      <td data-label="User"><strong>${esc(row.name)}</strong>${isCurrentUser ? " <span class=\"you-badge\">You</span>" : ""}</td>
+      <td data-label="Total Expense">${formatCurrency(row.totalExpense)}</td>
+      <td data-label="Expenses">${row.expenseCount}</td>
+    </tr>`;
+  }).join("");
+
+  const mine = rows.find((row) => row.id === currentUser?.id);
+  if (mine) {
+    myRank.textContent = `#${mine.rank}`;
+    myTotalExpense.textContent = formatCurrency(mine.totalExpense);
+    myExpenseCount.textContent = String(mine.expenseCount);
+    leaderboardSummary.hidden = false;
+  }
+  leaderboardTableWrap.hidden = false;
+  leaderboardStatus.textContent = "Leaderboard updated.";
+}
+
+async function loadLeaderboard() {
+  if (!currentUser || !leaderboardStatus) return;
+  leaderboardRefresh.disabled = true;
+  leaderboardStatus.textContent = "Loading leaderboard...";
+  try {
+    const data = await request("/api/leaderboard", { headers: authHeaders() });
+    renderLeaderboard(Array.isArray(data.leaderboard) ? data.leaderboard : []);
+  } catch (error) {
+    leaderboardTableWrap.hidden = true;
+    leaderboardSummary.hidden = true;
+    leaderboardStatus.textContent = "Unable to load leaderboard. Please try again.";
+  } finally {
+    leaderboardRefresh.disabled = false;
+  }
 }
 
 function setAuthMode(mode) {
@@ -255,6 +312,21 @@ if (insightBtn) {
       insight.innerHTML = `<div class="empty-state">${esc(error.message)}</div>`;
     }
   };
+}
+
+if (leaderboardRefresh) {
+  leaderboardRefresh.addEventListener("click", () => loadLeaderboard());
+}
+
+const leaderboardCard = leaderboardRefresh?.closest(".leaderboard-card");
+if (leaderboardCard && "IntersectionObserver" in window) {
+  const leaderboardObserver = new IntersectionObserver((entries, observer) => {
+    if (entries.some((entry) => entry.isIntersecting)) {
+      loadLeaderboard();
+      observer.disconnect();
+    }
+  }, { rootMargin: "160px" });
+  leaderboardObserver.observe(leaderboardCard);
 }
 
 updatePremiumState();

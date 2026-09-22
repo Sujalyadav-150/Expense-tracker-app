@@ -141,6 +141,49 @@ async function deleteExpense(email, expenseId) {
   return true;
 }
 
+async function getLeaderboard() {
+  await ensureDatabase();
+  return User.aggregate([
+    {
+      $lookup: {
+        from: Expense.collection.name,
+        let: { userEmail: "$email" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$email", "$$userEmail"] } } },
+          {
+            $group: {
+              _id: null,
+              totalExpense: { $sum: "$amount" },
+              expenseCount: { $sum: 1 }
+            }
+          }
+        ],
+        as: "expenseSummary"
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        id: { $toString: "$_id" },
+        name: { $ifNull: ["$name", "User"] },
+        totalExpense: {
+          $ifNull: [{ $arrayElemAt: ["$expenseSummary.totalExpense", 0] }, 0]
+        },
+        expenseCount: {
+          $ifNull: [{ $arrayElemAt: ["$expenseSummary.expenseCount", 0] }, 0]
+        }
+      }
+    },
+    { $sort: { totalExpense: -1, expenseCount: -1, name: 1, id: 1 } }
+  ]).then((rows) => rows.map((row, index) => ({
+    rank: index + 1,
+    id: row.id,
+    name: row.name,
+    totalExpense: Number(row.totalExpense || 0),
+    expenseCount: Number(row.expenseCount || 0)
+  })));
+}
+
 async function createResetToken({ email, rawToken, expiresInMs = 900000 }) {
   await ensureDatabase();
   const record = PasswordResetToken.create({ userId: email, rawToken, expiresInMs });
@@ -183,6 +226,7 @@ module.exports = {
   getExpenses,
   addExpense,
   deleteExpense,
+  getLeaderboard,
   createResetToken,
   getResetTokenByHash,
   markTokenUsed,

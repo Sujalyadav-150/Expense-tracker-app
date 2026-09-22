@@ -44,6 +44,29 @@
                 </select><button>Add Expense</button></form>
             <p id="msg"></p>
         </section>
+        <section class="card leaderboard-card" aria-labelledby="leaderboardTitle">
+            <div class="head">
+                <div>
+                    <span class="section-label">COMMUNITY</span>
+                    <h2 id="leaderboardTitle">🏆 Leaderboard</h2>
+                </div>
+                <button id="leaderboardRefresh" class="secondary-btn" type="button">Refresh</button>
+            </div>
+            <div id="leaderboardSummary" class="leaderboard-summary" hidden>
+                <span>My Rank: <strong id="myRank">-</strong></span>
+                <span>My Total Expense: <strong id="myTotalExpense">₹0</strong></span>
+                <span>My Expense Count: <strong id="myExpenseCount">0</strong></span>
+            </div>
+            <p id="leaderboardStatus" class="leaderboard-status" aria-live="polite">Open to load leaderboard.</p>
+            <div class="leaderboard-table-wrap" id="leaderboardTableWrap" hidden>
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr><th>Rank</th><th>User</th><th>Total Expense</th><th>Expenses</th></tr>
+                    </thead>
+                    <tbody id="leaderboardBody"></tbody>
+                </table>
+            </div>
+        </section>
         <section class="card">
             <div class="head">
                 <h2>Your Expenses</h2><b id="total">Total: ₹0.00</b>
