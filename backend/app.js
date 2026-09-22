@@ -46,14 +46,23 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "../frontend")));
 
 // --- Health Check ---
-app.get("/api/health", (req, res) => {
-  return res.status(200).json({
-    success: true,
-    message: "Backend and database are running",
-    database: database.isConnected ? "connected" : "not connected",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development"
-  });
+app.get("/api/health", async (req, res) => {
+  try {
+    await database.connectDB();
+    return res.status(200).json({
+      success: true,
+      database: "connected",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development"
+    });
+  } catch (error) {
+    console.error("health check database error:", error.message);
+    return res.status(503).json({
+      success: false,
+      database: "unavailable",
+      message: "Database temporarily unavailable."
+    });
+  }
 });
 
 // --- API Routes ---

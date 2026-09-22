@@ -13,6 +13,9 @@ function isDatabaseError(error) {
     error?.name === "MongoServerSelectionError" ||
     error?.name === "MongoNetworkError" ||
     error?.name === "MongooseServerSelectionError" ||
+    error?.code === "ENOTFOUND" ||
+    error?.code === "ECONNREFUSED" ||
+    error?.message?.includes("querySrv") ||
     error?.message?.includes("MONGODB_URI") ||
     error?.message?.includes("MongoDB")
   );
