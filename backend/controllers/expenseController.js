@@ -106,7 +106,7 @@ exports.deleteExpense = async (req, res) => {
 
 exports.getLeaderboard = async (req, res) => {
   try {
-    const leaderboard = await db.getLeaderboard();
+    const leaderboard = await db.getLeaderboard(req.user.email);
     return res.json({ success: true, leaderboard });
   } catch (error) {
     console.error("getLeaderboard error:", error.message);

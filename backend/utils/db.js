@@ -141,7 +141,7 @@ async function deleteExpense(email, expenseId) {
   return true;
 }
 
-async function getLeaderboard() {
+async function getLeaderboard(currentEmail) {
   await ensureDatabase();
   return User.aggregate([
     {
@@ -166,6 +166,7 @@ async function getLeaderboard() {
         _id: 0,
         id: { $toString: "$_id" },
         name: { $ifNull: ["$name", "User"] },
+        email: 1,
         totalExpense: {
           $ifNull: [{ $arrayElemAt: ["$expenseSummary.totalExpense", 0] }, 0]
         },
@@ -179,6 +180,7 @@ async function getLeaderboard() {
     rank: index + 1,
     id: row.id,
     name: row.name,
+    isCurrentUser: normalizeEmail(row.email) === normalizeEmail(currentEmail),
     totalExpense: Number(row.totalExpense || 0),
     expenseCount: Number(row.expenseCount || 0)
   })));

@@ -98,7 +98,7 @@ function renderLeaderboard(rows) {
   }
 
   leaderboardBody.innerHTML = rows.map((row) => {
-    const isCurrentUser = row.id === currentUser?.id;
+    const isCurrentUser = Boolean(row.isCurrentUser);
     return `<tr class="${isCurrentUser ? "current-user" : ""}">
       <td data-label="Rank">#${row.rank}</td>
       <td data-label="User"><strong>${esc(row.name)}</strong>${isCurrentUser ? " <span class=\"you-badge\">You</span>" : ""}</td>
@@ -107,7 +107,7 @@ function renderLeaderboard(rows) {
     </tr>`;
   }).join("");
 
-  const mine = rows.find((row) => row.id === currentUser?.id);
+  const mine = rows.find((row) => row.isCurrentUser);
   if (mine) {
     myRank.textContent = `#${mine.rank}`;
     myTotalExpense.textContent = formatCurrency(mine.totalExpense);
@@ -336,5 +336,24 @@ if (leaderboardCard && "IntersectionObserver" in window) {
   leaderboardObserver.observe(leaderboardCard);
 }
 
+async function refreshSession() {
+  if (!authToken) return;
+  try {
+    const data = await request("/api/auth/me", { headers: authHeaders() });
+    if (data.user) {
+      currentUser = data.user;
+      localStorage.setItem("loggedInUser", JSON.stringify(currentUser));
+      localStorage.setItem("expenseTrackerUser", JSON.stringify(currentUser));
+    }
+  } catch (error) {
+    clearAuth();
+  }
+}
+
 updatePremiumState();
-if (currentUser) load();
+if (currentUser) {
+  refreshSession().finally(() => {
+    updatePremiumState();
+    load();
+  });
+}
