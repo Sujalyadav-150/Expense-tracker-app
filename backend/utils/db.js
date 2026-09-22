@@ -13,9 +13,11 @@ function isDatabaseError(error) {
     error?.name === "MongoServerSelectionError" ||
     error?.name === "MongoNetworkError" ||
     error?.name === "MongooseServerSelectionError" ||
+    error?.name === "MongoParseError" ||
     error?.code === "ENOTFOUND" ||
     error?.code === "ECONNREFUSED" ||
     error?.message?.includes("querySrv") ||
+    error?.message?.includes("mongodb+srv URI cannot have port number") ||
     error?.message?.includes("MONGODB_URI") ||
     error?.message?.includes("MongoDB")
   );
