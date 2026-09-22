@@ -212,9 +212,16 @@ if (authForm) {
         body: JSON.stringify({ email, password, name: email.split("@")[0] })
       });
 
-      // Auto-login immediately upon successful account creation or login
+      if (authMode === "register") {
+        authForm.reset();
+        setAuthMode("login");
+        authMsg.textContent = "Account created successfully. Please login.";
+        authEmail.focus();
+        return;
+      }
+
       setAuth(data);
-      authMsg.textContent = authMode === "register" ? "Account created and logged in!" : "Login successful";
+      authMsg.textContent = "Login successful";
       authForm.reset();
     } catch (error) {
       authMsg.textContent = error.message;
