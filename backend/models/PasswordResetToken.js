@@ -15,8 +15,7 @@ const tokenSchema = new mongoose.Schema({
   },
   tokenHash: {
     type: String,
-    required: true,
-    index: true
+    required: true
   },
   createdAt: {
     type: Date,
