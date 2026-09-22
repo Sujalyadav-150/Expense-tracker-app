@@ -161,8 +161,31 @@ async function runTests() {
     assert.strictEqual(loginNormalized.status, 200, `Normalized email login failed: ${JSON.stringify(loginNormalized.body)}`);
     console.log("✓ Mixed-case/untrimmed email login successful");
 
+    // TEST 9: Hidden leaderboard names must never be exposed
+    console.log("\n[TEST 9] Hidden leaderboard names are filtered out");
+    const premUser = { name: "Prem", email: `prem_${Date.now()}@example.com`, password: "premPassword123" };
+    const premSignup = await request("/api/auth/signup", { method: "POST", body: premUser });
+    assert.strictEqual(premSignup.status, 201, `Prem user signup failed: ${JSON.stringify(premSignup.body)}`);
+
+    const premLogin = await request("/api/auth/login", {
+      method: "POST",
+      body: { email: premUser.email, password: premUser.password }
+    });
+    assert.strictEqual(premLogin.status, 200, `Prem user login failed: ${JSON.stringify(premLogin.body)}`);
+
+    const leaderboardRes = await request("/api/leaderboard", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${premLogin.body.token}` }
+    });
+    assert.strictEqual(leaderboardRes.status, 200, `Leaderboard fetch failed: ${JSON.stringify(leaderboardRes.body)}`);
+    assert.ok(
+      !leaderboardRes.body.leaderboard.some((row) => String(row.name || "").trim().toLowerCase() === "prem"),
+      "User named Prem must not appear in leaderboard."
+    );
+    console.log("✓ Prem is hidden from leaderboard output");
+
     console.log("\n==========================================");
-    console.log("🎉 ALL 8 AUTHENTICATION & PERSISTENCE TESTS PASSED!");
+    console.log("🎉 ALL 9 AUTHENTICATION & PERSISTENCE TESTS PASSED!");
     console.log("==========================================");
   } catch (err) {
     console.error("\n❌ TEST SUITE FAILED:", err.stack || err.message);

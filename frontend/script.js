@@ -90,14 +90,19 @@ function formatCurrency(value) {
 }
 
 function renderLeaderboard(rows) {
-  if (!rows.length) {
+  const visibleRows = (Array.isArray(rows) ? rows : []).filter((row) => {
+    const name = String(row?.name || "").trim().toLowerCase();
+    return name !== "prem";
+  });
+
+  if (!visibleRows.length) {
     leaderboardTableWrap.hidden = true;
     leaderboardSummary.hidden = true;
     leaderboardStatus.textContent = "No users found.";
     return;
   }
 
-  leaderboardBody.innerHTML = rows.map((row) => {
+  leaderboardBody.innerHTML = visibleRows.map((row) => {
     const isCurrentUser = Boolean(row.isCurrentUser);
     return `<tr class="${isCurrentUser ? "current-user" : ""}">
       <td data-label="Rank">#${row.rank}</td>
@@ -107,7 +112,7 @@ function renderLeaderboard(rows) {
     </tr>`;
   }).join("");
 
-  const mine = rows.find((row) => row.isCurrentUser);
+  const mine = visibleRows.find((row) => row.isCurrentUser);
   if (mine) {
     myRank.textContent = `#${mine.rank}`;
     myTotalExpense.textContent = formatCurrency(mine.totalExpense);

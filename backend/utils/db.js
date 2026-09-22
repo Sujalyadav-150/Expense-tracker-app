@@ -141,6 +141,13 @@ async function deleteExpense(email, expenseId) {
   return true;
 }
 
+const HIDDEN_LEADERBOARD_NAMES = new Set(["prem"]);
+
+function isHiddenLeaderboardName(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return HIDDEN_LEADERBOARD_NAMES.has(normalized);
+}
+
 async function getLeaderboard(currentEmail) {
   await ensureDatabase();
   return User.aggregate([
@@ -159,6 +166,26 @@ async function getLeaderboard(currentEmail) {
           }
         ],
         as: "expenseSummary"
+      }
+    },
+    {
+      $match: {
+        $expr: {
+          $not: {
+            $in: [
+              {
+                $trim: {
+                  input: {
+                    $toLower: {
+                      $ifNull: ["$name", ""]
+                    }
+                  }
+                }
+              },
+              ["prem"]
+            ]
+          }
+        }
       }
     },
     {
@@ -183,7 +210,7 @@ async function getLeaderboard(currentEmail) {
     isCurrentUser: normalizeEmail(row.email) === normalizeEmail(currentEmail),
     totalExpense: Number(row.totalExpense || 0),
     expenseCount: Number(row.expenseCount || 0)
-  })));
+  }))).then((rows) => rows.filter((row) => !isHiddenLeaderboardName(row.name)));
 }
 
 async function createResetToken({ email, rawToken, expiresInMs = 900000 }) {
