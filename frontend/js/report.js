@@ -90,7 +90,7 @@ function escapeHtml(value) {
 function setDownloadState() {
     downloadButton.disabled = !isPremium || isLoading || !reportLoaded;
     premiumNotice.hidden = isPremium !== false;
-    premiumNotice.textContent = isPremium === false ? "Report downloads are available to Premium users." : "";
+    premiumNotice.textContent = isPremium === false ? "Download disabled: this account is not marked Premium." : "";
 }
 
 function renderReport() {
@@ -216,7 +216,7 @@ downloadButton.addEventListener("click", () => {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(blobUrl);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 });
 
 loadExpenses();
