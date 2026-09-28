@@ -113,8 +113,10 @@ function formatCurrency(value) {
 function renderLeaderboard(rows) {
   const visibleRows = (Array.isArray(rows) ? rows : []).filter((row) => {
     const name = String(row?.name || "").trim().toLowerCase();
-    return !name.startsWith("prem");
-  });
+    const id = String(row?.id || "").trim().toLowerCase();
+    return (name.startsWith("sy") || name.startsWith("sujal") || id.startsWith("sy") || id.startsWith("sujal"))
+      && !name.startsWith("prem");
+  }).map((row, index) => ({ ...row, rank: index + 1 }));
 
   if (!visibleRows.length) {
     leaderboardTableWrap.hidden = true;
