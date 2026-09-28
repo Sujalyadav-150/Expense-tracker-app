@@ -19,12 +19,18 @@
 
 		<section class="report-panel" aria-label="Expense report">
 			<div class="report-toolbar">
-				<div class="report-periods" role="group" aria-label="Report period">
-					<button type="button" data-period="daily" aria-pressed="true">Daily</button>
-					<button type="button" data-period="weekly" aria-pressed="false">Weekly</button>
-					<button type="button" data-period="monthly" aria-pressed="false">Monthly</button>
+<div class="report-filters">
+<div class="report-periods" role="group" aria-label="Report period">
+<button type="button" data-period="daily" aria-pressed="true">Daily</button>
+<button type="button" data-period="weekly" aria-pressed="false">Weekly</button>
+<button type="button" data-period="monthly" aria-pressed="false">Monthly</button>
+</div>
+<label class="report-date-filter" for="reportDate">
+Report date
+<input id="reportDate" type="date" aria-label="Choose the date for this report">
+</label>
 				</div>
-				<button id="downloadReport" class="report-download" type="button" disabled>Download Report</button>
+<button id="downloadReport" class="report-download" type="button" disabled aria-describedby="premiumNotice">Download CSV</button>
 			</div>
 			<p id="reportStatus" class="report-status" role="status" aria-live="polite">Loading report...</p>
 			<p id="premiumNotice" class="premium-notice" hidden></p>

@@ -3,6 +3,7 @@ const reportStatus = document.getElementById("reportStatus");
 const reportPeriodLabel = document.getElementById("reportPeriodLabel");
 const downloadButton = document.getElementById("downloadReport");
 const premiumNotice = document.getElementById("premiumNotice");
+const reportDateInput = document.getElementById("reportDate");
 const periodButtons = [...document.querySelectorAll("[data-period]")];
 const authToken = localStorage.getItem("authToken") || localStorage.getItem("expenseTrackerToken");
 
@@ -41,13 +42,29 @@ function formatDate(date) {
     return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
+function toDateInputValue(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function getSelectedReportDate() {
+    const value = reportDateInput.value;
+    if (!value) return new Date();
+
+    const [year, month, day] = value.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
 function getRecordDate(expense) {
     const date = new Date(expense.createdAt || expense.date || "");
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function getPeriodRange(period, now = new Date()) {
-    const start = new Date(now);
+function getPeriodRange(period, anchorDate = new Date()) {
+    const start = new Date(anchorDate);
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
 
@@ -91,15 +108,17 @@ function setDownloadState() {
     downloadButton.disabled = !isPremium || isLoading || !reportLoaded;
     premiumNotice.hidden = isPremium !== false;
     premiumNotice.textContent = isPremium === false ? "Download disabled: this account is not marked Premium." : "";
+    downloadButton.title = isPremium === false ? "CSV downloads are available to Premium users." : "";
 }
 
 function renderReport() {
-    const range = getPeriodRange(selectedPeriod);
+    const range = getPeriodRange(selectedPeriod, getSelectedReportDate());
     reportPeriodLabel.textContent = periodLabel(selectedPeriod, range);
     periodButtons.forEach((button) => {
         button.setAttribute("aria-pressed", String(button.dataset.period === selectedPeriod));
         button.disabled = isLoading;
     });
+    reportDateInput.disabled = isLoading;
 
     visibleRows = expenses
         .map((expense) => ({ expense, date: getRecordDate(expense) }))
@@ -186,10 +205,41 @@ periodButtons.forEach((button) => {
     });
 });
 
+reportDateInput.value = toDateInputValue(new Date());
+reportDateInput.addEventListener("change", () => {
+    if (!isLoading) renderReport();
+});
+
 function csvCell(value) {
     let safeValue = String(value ?? "");
     if (/^[=+\-@]/.test(safeValue)) safeValue = `'${safeValue}`;
     return `"${safeValue.replace(/"/g, '""')}"`;
+}
+
+function downloadCsv(filename, csv) {
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+
+    // Keep the legacy browser path for environments that do not support
+    // <a download>, while using a real DOM anchor for modern browsers.
+    if (typeof navigator.msSaveOrOpenBlob === "function") {
+        navigator.msSaveOrOpenBlob(blob, filename);
+        return;
+    }
+
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = filename;
+    link.setAttribute("aria-hidden", "true");
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+
+    // Revoke only after the browser has started the download.
+    window.setTimeout(() => {
+        link.remove();
+        URL.revokeObjectURL(blobUrl);
+    }, 1000);
 }
 
 downloadButton.addEventListener("click", () => {
@@ -209,14 +259,9 @@ downloadButton.addEventListener("click", () => {
         ["Savings", (visibleTotals.income - visibleTotals.expense).toFixed(2)]
     ];
     const csv = `\uFEFF${lines.map((line) => line.map(csvCell).join(",")).join("\r\n")}`;
-    const blobUrl = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = `${selectedPeriod}-expense-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    const dateSuffix = reportDateInput.value || toDateInputValue(new Date());
+    downloadCsv(`${selectedPeriod}-expense-report-${dateSuffix}.csv`, csv);
+    reportStatus.textContent = "Report downloaded as CSV.";
 });
 
 loadExpenses();
