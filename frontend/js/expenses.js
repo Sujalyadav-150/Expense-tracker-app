@@ -2,9 +2,18 @@ const form = document.getElementById("expenseForm");
 const tableBody = document.getElementById("expenseTableBody");
 const descriptionInput = document.getElementById("description");
 const aiSuggestion = document.getElementById("aiSuggestion");
+const pageSizeSelect = document.getElementById("pageSizeSelect");
+const paginationSummary = document.getElementById("paginationSummary");
+const pageIndicator = document.getElementById("pageIndicator");
+const previousPageBtn = document.getElementById("previousPageBtn");
+const nextPageBtn = document.getElementById("nextPageBtn");
 
 const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser") || localStorage.getItem("expenseTrackerUser") || "null");
 const authToken = localStorage.getItem("authToken") || localStorage.getItem("expenseTrackerToken");
+const pageSizeOptions = [5, 8, 10, 20, 40];
+const pageSizeStorageKey = `expensePageSize:${String(loggedInUser?.email || "guest").trim().toLowerCase()}`;
+const savedPageSize = Number(localStorage.getItem(pageSizeStorageKey));
+let pageSize = pageSizeOptions.includes(savedPageSize) ? savedPageSize : 10;
 
 function clearStoredAuth() {
   localStorage.removeItem("authToken");
@@ -30,6 +39,7 @@ let currentExpenses = [];
 let predictedCategory = null;
 let predictedDescription = "";
 let predictedSource = "fallback";
+let currentPage = 1;
 
 if (!loggedInUser) {
   window.location.href = "login.html";
@@ -56,20 +66,57 @@ function updateTotalExpense(expenses) {
 }
 
 function renderExpenses(expenses) {
-  if (!Array.isArray(expenses) || expenses.length === 0) {
+  const allExpenses = Array.isArray(expenses) ? expenses : [];
+  const totalPages = Math.max(1, Math.ceil(allExpenses.length / pageSize));
+  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const visibleExpenses = allExpenses.slice(startIndex, startIndex + pageSize);
+
+  if (allExpenses.length === 0) {
     tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">No expenses recorded yet.</td></tr>';
-    return;
+  } else {
+    tableBody.innerHTML = visibleExpenses.map((expense) => `
+      <tr>
+        <td>₹${Number(expense.amount).toFixed(2)}</td>
+        <td>${expense.description}</td>
+        <td>${expense.category}</td>
+        <td>${expense.categorySource || "saved"}</td>
+        <td><button class="delete-button" data-expense-id="${expense.id}" type="button">Delete</button></td>
+      </tr>
+    `).join("");
   }
-  tableBody.innerHTML = expenses.map((expense) => `
-    <tr>
-      <td>₹${Number(expense.amount).toFixed(2)}</td>
-      <td>${expense.description}</td>
-      <td>${expense.category}</td>
-      <td>${expense.categorySource || "saved"}</td>
-      <td><button class="delete-button" data-expense-id="${expense.id}" type="button">Delete</button></td>
-    </tr>
-  `).join("");
+
+  paginationSummary.textContent = allExpenses.length
+    ? `Showing ${startIndex + 1}-${Math.min(startIndex + pageSize, allExpenses.length)} of ${allExpenses.length}`
+    : "Showing 0 expenses";
+  pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+  previousPageBtn.disabled = currentPage === 1;
+  nextPageBtn.disabled = currentPage === totalPages;
 }
+
+pageSizeSelect.value = String(pageSize);
+pageSizeSelect.addEventListener("change", () => {
+  const selectedPageSize = Number(pageSizeSelect.value);
+  if (!pageSizeOptions.includes(selectedPageSize)) return;
+  pageSize = selectedPageSize;
+  currentPage = 1;
+  localStorage.setItem(pageSizeStorageKey, String(pageSize));
+  renderExpenses(currentExpenses);
+});
+
+previousPageBtn.addEventListener("click", () => {
+  if (currentPage > 1) {
+    currentPage -= 1;
+    renderExpenses(currentExpenses);
+  }
+});
+
+nextPageBtn.addEventListener("click", () => {
+  if (currentPage < Math.ceil(currentExpenses.length / pageSize)) {
+    currentPage += 1;
+    renderExpenses(currentExpenses);
+  }
+});
 
 async function deleteExpense(expenseId) {
   if (!window.confirm("Delete this expense?")) return;
@@ -158,6 +205,7 @@ form.addEventListener("submit", async (event) => {
     // instead of waiting for two extra network/database requests.
     if (result && result.id) {
       currentExpenses = [result, ...currentExpenses];
+      currentPage = 1;
       renderExpenses(currentExpenses);
       updateTotalExpense(currentExpenses);
     }
