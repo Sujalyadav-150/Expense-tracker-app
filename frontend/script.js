@@ -6,6 +6,11 @@ const trackerApp = document.getElementById("trackerApp");
 const authForm = document.getElementById("authForm");
 const authEmail = document.getElementById("authEmail");
 const authPassword = document.getElementById("authPassword");
+const authName = document.getElementById("authName");
+const authNameLabel = document.getElementById("authNameLabel");
+const authConfirmPassword = document.getElementById("authConfirmPassword");
+const authConfirmPasswordLabel = document.getElementById("authConfirmPasswordLabel");
+const forgotPasswordLink = document.getElementById("forgotPasswordLink");
 const authMsg = document.getElementById("authMsg");
 const authSubmit = document.getElementById("authSubmit");
 const registerBtn = document.getElementById("registerBtn");
@@ -30,6 +35,7 @@ const myExpenseCount = document.getElementById("myExpenseCount");
 const expensePageSizeSelect = document.getElementById("expensePageSize");
 const expensePaginationSummary = document.getElementById("expensePaginationSummary");
 const expensePageNavigation = document.getElementById("expensePageNavigation");
+const expensePageNumbers = document.getElementById("expensePageNumbers");
 const expensePageIndicator = document.getElementById("expensePageIndicator");
 const expensePreviousPage = document.getElementById("expensePreviousPage");
 const expenseNextPage = document.getElementById("expenseNextPage");
@@ -59,7 +65,7 @@ let authToken = localStorage.getItem("authToken") || localStorage.getItem("expen
 let currentUser = JSON.parse(localStorage.getItem("loggedInUser") || localStorage.getItem("expenseTrackerUser") || "null");
 let authMode = "login";
 const expensePageSizes = [5, 10, 20, 30, 40];
-const savedExpensePageSize = Number(localStorage.getItem("expensePageSize"));
+const savedExpensePageSize = Number(localStorage.getItem("expensesPerPage") || localStorage.getItem("expensePageSize"));
 let expensePageSize = expensePageSizes.includes(savedExpensePageSize) ? savedExpensePageSize : 10;
 let expensePage = 1;
 let expensePagination = { currentPage: 1, pageSize: expensePageSize, totalExpenses: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: false };
@@ -161,6 +167,9 @@ function setAuthMode(mode) {
   if (authSubtitle) authSubtitle.textContent = signup ? "Start tracking your expenses" : "Sign in to continue to your expenses";
   if (authSubmit) authSubmit.textContent = signup ? "Create account" : "Login";
   if (registerBtn) registerBtn.textContent = signup ? "Back to login" : "Create a new account";
+  if (authNameLabel) authNameLabel.hidden = !signup;
+  if (authConfirmPasswordLabel) authConfirmPasswordLabel.hidden = !signup;
+  if (forgotPasswordLink) forgotPasswordLink.hidden = signup;
   if (authMsg) authMsg.textContent = "";
 }
 
@@ -190,9 +199,19 @@ function renderExpensePagination() {
   const { currentPage, pageSize, totalExpenses, totalPages } = expensePagination;
   const firstExpense = totalExpenses ? (currentPage - 1) * pageSize + 1 : 0;
   expensePaginationSummary.textContent = totalExpenses
-    ? `Showing ${firstExpense}-${Math.min(firstExpense + pageSize - 1, totalExpenses)} of ${totalExpenses}`
+    ? `Showing ${firstExpense}-${Math.min(firstExpense + pageSize - 1, totalExpenses)} of ${totalExpenses} expenses`
     : "Showing 0 expenses";
   expensePageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+  const firstPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  const lastPage = Math.min(totalPages, firstPage + 4);
+  const visiblePages = [];
+  if (firstPage > 1) visiblePages.push(1, ...(firstPage > 2 ? [null] : []));
+  for (let pageNumber = firstPage; pageNumber <= lastPage; pageNumber += 1) visiblePages.push(pageNumber);
+  if (lastPage < totalPages) visiblePages.push(...(lastPage < totalPages - 1 ? [null] : []), totalPages);
+  expensePageNumbers.innerHTML = visiblePages.map((pageNumber) => pageNumber === null
+    ? '<span class="page-ellipsis" aria-hidden="true">...</span>'
+    : `<button type="button" data-page="${pageNumber}" aria-label="Page ${pageNumber}"${pageNumber === currentPage ? ' aria-current="page"' : ""}${isLoadingExpenses ? " disabled" : ""}>${pageNumber}</button>`
+  ).join("");
   expensePageNavigation.hidden = !expensePaginationReady || totalPages <= 1;
   expensePageSizeSelect.disabled = isLoadingExpenses;
   expensePreviousPage.disabled = isLoadingExpenses || !expensePagination.hasPreviousPage;
@@ -204,8 +223,9 @@ expensePageSizeSelect.addEventListener("change", () => {
   const selectedSize = Number(expensePageSizeSelect.value);
   if (isLoadingExpenses || !expensePageSizes.includes(selectedSize)) return;
   expensePageSize = selectedSize;
-  localStorage.setItem("expensePageSize", String(expensePageSize));
-  load(expensePage);
+  localStorage.setItem("expensesPerPage", String(expensePageSize));
+  expensePage = 1;
+  load(1);
 });
 
 expensePreviousPage.addEventListener("click", () => {
@@ -214,6 +234,14 @@ expensePreviousPage.addEventListener("click", () => {
 
 expenseNextPage.addEventListener("click", () => {
   if (!isLoadingExpenses && expensePagination.hasNextPage) load(expensePage + 1);
+});
+
+expensePageNumbers.addEventListener("click", (event) => {
+  const pageButton = event.target.closest("[data-page]");
+  const selectedPage = Number(pageButton?.dataset.page);
+  if (!isLoadingExpenses && Number.isInteger(selectedPage) && selectedPage >= 1 && selectedPage <= expensePagination.totalPages) {
+    load(selectedPage);
+  }
 });
 
 async function load(page = expensePage) {
@@ -276,6 +304,23 @@ if (authForm) {
       authPassword.focus();
       return;
     }
+    if (authMode === "register") {
+      if (!authName.value.trim()) {
+        authMsg.textContent = "Please enter your name.";
+        authName.focus();
+        return;
+      }
+      if (!authConfirmPassword.value) {
+        authMsg.textContent = "Please confirm your password.";
+        authConfirmPassword.focus();
+        return;
+      }
+      if (password !== authConfirmPassword.value) {
+        authMsg.textContent = "Passwords do not match.";
+        authConfirmPassword.focus();
+        return;
+      }
+    }
     authSubmit.disabled = true;
     if (registerBtn) registerBtn.disabled = true;
     authMsg.textContent = authMode === "register" ? "Creating your account..." : "Logging in...";
@@ -284,7 +329,7 @@ if (authForm) {
       const data = await request(path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name: email.split("@")[0] })
+        body: JSON.stringify({ email, password, name: authMode === "register" ? authName.value.trim() : email.split("@")[0] })
       });
 
       if (authMode === "register") {

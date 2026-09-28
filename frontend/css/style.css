@@ -55,6 +55,10 @@ td { font-size: .9rem; }
 .page-navigation button:disabled { opacity: .5; cursor: not-allowed; }
 .page-navigation button:disabled:hover { background: var(--accent); }
 .page-indicator { min-width: 86px; text-align: center; color: var(--muted); }
+.page-numbers { display: flex; align-items: center; gap: 4px; }
+.page-numbers button { min-width: 34px; padding: 8px; }
+.page-numbers button[aria-current="page"] { color: var(--ink); background: var(--warm); border-color: var(--warm); }
+.page-ellipsis { padding: 0 3px; color: var(--muted); }
 .pagination-retry { width: auto; margin-left: 8px; padding: 6px 9px; font-size: .75rem; }
 .delete-button { width: auto; padding: 7px 10px; color: #9a352d; background: transparent; border-color: #e4b4ae; font-size: .75rem; }
 .delete-button:hover { color: white; background: #9a352d; }

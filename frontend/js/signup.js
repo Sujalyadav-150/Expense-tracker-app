@@ -8,8 +8,17 @@ form.addEventListener("submit", async (event) => {
     email: document.getElementById("email").value.trim(),
     password: document.getElementById("password").value
   };
+  const confirmPassword = document.getElementById("confirmPassword").value;
 
   const message = document.getElementById("message");
+  if (!user.password || !confirmPassword) {
+    message.textContent = "Password and confirmation are required.";
+    return;
+  }
+  if (user.password !== confirmPassword) {
+    message.textContent = "Passwords do not match.";
+    return;
+  }
 
   try {
     const response = await fetch("/api/auth/signup", {

@@ -33,7 +33,7 @@ exports.getExpenses = async (req, res) => {
     }
 
     const result = await db.getExpensesPage(email, { page, limit });
-    return res.json(result);
+    return res.json({ success: true, ...result });
   } catch (error) {
     console.error("getExpenses error:", error.message);
     if (db.isDatabaseError(error)) {

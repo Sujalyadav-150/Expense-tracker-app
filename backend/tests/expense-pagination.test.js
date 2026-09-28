@@ -73,6 +73,7 @@ test("expense API pages only the authenticated user's rows and clamps invalidate
     }, response);
 
     assert.equal(response.statusCode, 200);
+    assert.equal(response.body.success, true);
     assert.deepEqual(countFilter, { email: "owner@example.com" });
     assert.deepEqual(aggregateFilter, countFilter);
     assert.deepEqual(query.filter, countFilter);

@@ -1,4 +1,6 @@
  .leaderboard-card { overflow: hidden; }
+#forgotPasswordLink { color: #55e69b; font-size: 13px; font-weight: 700; text-decoration: underline; }
+#forgotPasswordLink[hidden] { display: none; }
 .expense-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0; font-size: 13px; color: #aab4bb; }
 .expense-pagination label { font-weight: 700; }
 .expense-pagination select { width: auto; min-width: 75px; padding: 8px 10px; }
@@ -7,6 +9,10 @@
 .expense-pagination nav button { width: auto; padding: 8px 11px; }
 .expense-pagination nav button:disabled { opacity: .5; cursor: not-allowed; }
 .expense-pagination nav span { min-width: 86px; text-align: center; }
+.expense-page-numbers { display: flex; align-items: center; gap: 4px; }
+.expense-page-numbers button { min-width: 34px; padding: 8px; }
+.expense-page-numbers button[aria-current="page"] { color: #06130a; background: #f5c451; border-color: #f5c451; }
+.expense-pagination .page-ellipsis { padding: 0 3px; color: #aab4bb; }
 .expense-list-status { color: #aab4bb; font-size: 13px; }
 .expense-list-status:empty { display: none; }
 .expense-pagination-summary { color: #aab4bb; }

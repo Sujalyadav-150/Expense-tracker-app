@@ -5,6 +5,7 @@ const aiSuggestion = document.getElementById("aiSuggestion");
 const pageSizeSelect = document.getElementById("pageSizeSelect");
 const paginationSummary = document.getElementById("paginationSummary");
 const pageNavigation = document.getElementById("pageNavigation");
+const pageNumbers = document.getElementById("pageNumbers");
 const pageIndicator = document.getElementById("pageIndicator");
 const previousPageBtn = document.getElementById("previousPageBtn");
 const nextPageBtn = document.getElementById("nextPageBtn");
@@ -13,7 +14,7 @@ const expenseListStatus = document.getElementById("expenseListStatus");
 const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser") || localStorage.getItem("expenseTrackerUser") || "null");
 const authToken = localStorage.getItem("authToken") || localStorage.getItem("expenseTrackerToken");
 const pageSizeOptions = [5, 10, 20, 30, 40];
-const savedPageSize = Number(localStorage.getItem("expensePageSize"));
+const savedPageSize = Number(localStorage.getItem("expensesPerPage") || localStorage.getItem("expensePageSize"));
 let pageSize = pageSizeOptions.includes(savedPageSize) ? savedPageSize : 10;
 function clearStoredAuth() {
   localStorage.removeItem("authToken");
@@ -85,9 +86,19 @@ function renderPagination() {
   const { currentPage: page, pageSize: size, totalExpenses, totalPages } = pagination;
   const start = totalExpenses ? (page - 1) * size + 1 : 0;
   paginationSummary.textContent = totalExpenses
-    ? `Showing ${start}-${Math.min(start + size - 1, totalExpenses)} of ${totalExpenses}`
+    ? `Showing ${start}-${Math.min(start + size - 1, totalExpenses)} of ${totalExpenses} expenses`
     : "Showing 0 expenses";
   pageIndicator.textContent = `Page ${page} of ${totalPages}`;
+  const firstPage = Math.max(1, Math.min(page - 2, totalPages - 4));
+  const lastPage = Math.min(totalPages, firstPage + 4);
+  const visiblePages = [];
+  if (firstPage > 1) visiblePages.push(1, ...(firstPage > 2 ? [null] : []));
+  for (let pageNumber = firstPage; pageNumber <= lastPage; pageNumber += 1) visiblePages.push(pageNumber);
+  if (lastPage < totalPages) visiblePages.push(...(lastPage < totalPages - 1 ? [null] : []), totalPages);
+  pageNumbers.innerHTML = visiblePages.map((pageNumber) => pageNumber === null
+    ? '<span class="page-ellipsis" aria-hidden="true">...</span>'
+    : `<button type="button" data-page="${pageNumber}" aria-label="Page ${pageNumber}"${pageNumber === page ? ' aria-current="page"' : ""}${isLoadingExpenses ? " disabled" : ""}>${pageNumber}</button>`
+  ).join("");
   pageNavigation.hidden = !paginationReady || totalPages <= 1;
   pageSizeSelect.disabled = isLoadingExpenses;
   previousPageBtn.disabled = isLoadingExpenses || !pagination.hasPreviousPage;
@@ -99,8 +110,9 @@ pageSizeSelect.addEventListener("change", () => {
   const selectedPageSize = Number(pageSizeSelect.value);
   if (isLoadingExpenses || !pageSizeOptions.includes(selectedPageSize)) return;
   pageSize = selectedPageSize;
-  localStorage.setItem("expensePageSize", String(pageSize));
-  loadExpenses({ page: currentPage });
+  localStorage.setItem("expensesPerPage", String(pageSize));
+  currentPage = 1;
+  loadExpenses({ page: 1 });
 });
 
 previousPageBtn.addEventListener("click", () => {
@@ -112,6 +124,14 @@ previousPageBtn.addEventListener("click", () => {
 nextPageBtn.addEventListener("click", () => {
   if (!isLoadingExpenses && pagination.hasNextPage) {
     loadExpenses({ page: currentPage + 1 });
+  }
+});
+
+pageNumbers.addEventListener("click", (event) => {
+  const pageButton = event.target.closest("[data-page]");
+  const selectedPage = Number(pageButton?.dataset.page);
+  if (!isLoadingExpenses && Number.isInteger(selectedPage) && selectedPage >= 1 && selectedPage <= pagination.totalPages) {
+    loadExpenses({ page: selectedPage });
   }
 });
 
