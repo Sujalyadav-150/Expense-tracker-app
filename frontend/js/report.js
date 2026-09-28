@@ -107,8 +107,23 @@ function escapeHtml(value) {
 function setDownloadState() {
     downloadButton.disabled = !isPremium || isLoading || !reportLoaded;
     premiumNotice.hidden = isPremium !== false;
-    premiumNotice.textContent = isPremium === false ? "Download disabled: this account is not marked Premium." : "";
-    downloadButton.title = isPremium === false ? "CSV downloads are available to Premium users." : "";
+    premiumNotice.textContent = isPremium === false ? "Download disabled: only the highest-spending user can download reports." : "";
+    downloadButton.title = isPremium === false ? "CSV downloads are available to the highest-spending user." : "";
+}
+
+function isHighestSpender(rows) {
+    const leaderboard = Array.isArray(rows) ? rows : [];
+    const currentUser = leaderboard.find((row) => row?.isCurrentUser);
+    if (!currentUser) return false;
+
+    const currentTotal = Number(currentUser.totalExpense) || 0;
+    const highestTotal = leaderboard.reduce((highest, row) => {
+        return Math.max(highest, Number(row?.totalExpense) || 0);
+    }, 0);
+
+    // A user with no expenses should not become Premium just because
+    // every account currently has the same zero total.
+    return currentTotal > 0 && currentTotal >= highestTotal;
 }
 
 function renderReport() {
@@ -169,11 +184,12 @@ async function loadExpenses() {
     setDownloadState();
 
     try {
-        const [session, firstPage] = await Promise.all([
+        const [, firstPage, leaderboardResponse] = await Promise.all([
             apiJson("/api/auth/me"),
-            apiJson("/api/expenses?page=1&limit=40")
+            apiJson("/api/expenses?page=1&limit=40"),
+            apiJson("/api/leaderboard")
         ]);
-        isPremium = session.user?.isPremium === true;
+        isPremium = isHighestSpender(leaderboardResponse.leaderboard);
         expenses = Array.isArray(firstPage.expenses) ? [...firstPage.expenses] : [];
 
         const totalPages = Number(firstPage.pagination?.totalPages) || 0;
