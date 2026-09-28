@@ -72,6 +72,23 @@
                 <h2>Your Expenses</h2><b id="total">Total: ₹0.00</b>
             </div>
             <div id="insight"></div>
+            <div class="expense-pagination">
+                <label for="expensePageSize">Expenses per page</label>
+                <select id="expensePageSize">
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="30">30</option>
+                    <option value="40">40</option>
+                </select>
+                <span id="expensePaginationSummary" aria-live="polite"></span>
+                <nav id="expensePageNavigation" aria-label="Expense pages" hidden>
+                    <button id="expensePreviousPage" type="button">Previous</button>
+                    <span id="expensePageIndicator" aria-live="polite"></span>
+                    <button id="expenseNextPage" type="button">Next</button>
+                </nav>
+            </div>
+            <p id="expenseListStatus" class="expense-list-status" role="status" aria-live="polite"></p>
             <div id="list"></div>
         </section>
     </main>

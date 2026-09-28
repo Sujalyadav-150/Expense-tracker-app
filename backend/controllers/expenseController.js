@@ -17,10 +17,23 @@ exports.getExpenses = async (req, res) => {
   try {
     const email = req.user.email;
     if (!email) {
-      return res.json([]);
+      return res.status(401).json({ success: false, message: "Authentication required." });
     }
-    const list = await db.getExpenses(email);
-    return res.json(Array.isArray(list) ? list : []);
+
+    const rawPage = req.query.page ?? "1";
+    const rawLimit = req.query.limit ?? "10";
+    const page = Number(rawPage);
+    const limit = Number(rawLimit);
+    const allowedPageSizes = new Set([5, 10, 20, 30, 40]);
+    if (!/^\d+$/.test(String(rawPage)) || !Number.isSafeInteger(page) || page < 1) {
+      return res.status(400).json({ success: false, message: "Page must be a positive integer." });
+    }
+    if (!/^\d+$/.test(String(rawLimit)) || !allowedPageSizes.has(limit)) {
+      return res.status(400).json({ success: false, message: "Limit must be one of 5, 10, 20, 30, or 40." });
+    }
+
+    const result = await db.getExpensesPage(email, { page, limit });
+    return res.json(result);
   } catch (error) {
     console.error("getExpenses error:", error.message);
     if (db.isDatabaseError(error)) {

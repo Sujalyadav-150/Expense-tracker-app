@@ -27,6 +27,13 @@ const leaderboardBody = document.getElementById("leaderboardBody");
 const myRank = document.getElementById("myRank");
 const myTotalExpense = document.getElementById("myTotalExpense");
 const myExpenseCount = document.getElementById("myExpenseCount");
+const expensePageSizeSelect = document.getElementById("expensePageSize");
+const expensePaginationSummary = document.getElementById("expensePaginationSummary");
+const expensePageNavigation = document.getElementById("expensePageNavigation");
+const expensePageIndicator = document.getElementById("expensePageIndicator");
+const expensePreviousPage = document.getElementById("expensePreviousPage");
+const expenseNextPage = document.getElementById("expenseNextPage");
+const expenseListStatus = document.getElementById("expenseListStatus");
 
 const esc = x => { const d = document.createElement("div"); d.textContent = x; return d.innerHTML; };
 
@@ -51,6 +58,14 @@ async function request(path, options = {}) {
 let authToken = localStorage.getItem("authToken") || localStorage.getItem("expenseTrackerToken");
 let currentUser = JSON.parse(localStorage.getItem("loggedInUser") || localStorage.getItem("expenseTrackerUser") || "null");
 let authMode = "login";
+const expensePageSizes = [5, 10, 20, 30, 40];
+const savedExpensePageSize = Number(localStorage.getItem("expensePageSize"));
+let expensePageSize = expensePageSizes.includes(savedExpensePageSize) ? savedExpensePageSize : 10;
+let expensePage = 1;
+let expensePagination = { currentPage: 1, pageSize: expensePageSize, totalExpenses: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: false };
+let isLoadingExpenses = false;
+let expensePaginationReady = false;
+let expenseRequestSequence = 0;
 
 function authHeaders() {
   const headers = {};
@@ -165,31 +180,86 @@ function renderExpenseItem(x) {
   return d;
 }
 
-function updateTotalFromList() {
+function updateTotalFromList(amount) {
   if (!list || !total) return;
-  const amounts = [...list.querySelectorAll(".expense")]
-    .map(el => Number(el.dataset.amount) || 0);
-  const sum = amounts.reduce((a, b) => a + b, 0);
+  const sum = Number(amount) || 0;
   total.textContent = `Total: ₹${sum.toFixed(2)}`;
 }
 
-async function load() {
+function renderExpensePagination() {
+  const { currentPage, pageSize, totalExpenses, totalPages } = expensePagination;
+  const firstExpense = totalExpenses ? (currentPage - 1) * pageSize + 1 : 0;
+  expensePaginationSummary.textContent = totalExpenses
+    ? `Showing ${firstExpense}-${Math.min(firstExpense + pageSize - 1, totalExpenses)} of ${totalExpenses}`
+    : "Showing 0 expenses";
+  expensePageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+  expensePageNavigation.hidden = !expensePaginationReady || totalPages <= 1;
+  expensePageSizeSelect.disabled = isLoadingExpenses;
+  expensePreviousPage.disabled = isLoadingExpenses || !expensePagination.hasPreviousPage;
+  expenseNextPage.disabled = isLoadingExpenses || !expensePagination.hasNextPage;
+}
+
+expensePageSizeSelect.value = String(expensePageSize);
+expensePageSizeSelect.addEventListener("change", () => {
+  const selectedSize = Number(expensePageSizeSelect.value);
+  if (isLoadingExpenses || !expensePageSizes.includes(selectedSize)) return;
+  expensePageSize = selectedSize;
+  localStorage.setItem("expensePageSize", String(expensePageSize));
+  load(expensePage);
+});
+
+expensePreviousPage.addEventListener("click", () => {
+  if (!isLoadingExpenses && expensePagination.hasPreviousPage) load(expensePage - 1);
+});
+
+expenseNextPage.addEventListener("click", () => {
+  if (!isLoadingExpenses && expensePagination.hasNextPage) load(expensePage + 1);
+});
+
+async function load(page = expensePage) {
   if (!currentUser || !list) return;
+  const requestSequence = ++expenseRequestSequence;
+  isLoadingExpenses = true;
+  expenseListStatus.textContent = "Loading expenses...";
+  renderExpensePagination();
+
   try {
-    const xs = await request("/api/expenses", { headers: authHeaders() });
-    const items = Array.isArray(xs) ? xs : [];
+    const data = await request(`/api/expenses?page=${page}&limit=${expensePageSize}`, { headers: authHeaders() });
+    if (requestSequence !== expenseRequestSequence) return;
+    if (!Array.isArray(data.expenses) || !data.pagination) {
+      throw new Error("The expenses response was invalid.");
+    }
+
+    const items = data.expenses;
+    expensePagination = data.pagination;
+    expensePage = expensePagination.currentPage;
+    expensePageSize = expensePagination.pageSize;
+    expensePageSizeSelect.value = String(expensePageSize);
+    expensePaginationReady = true;
     list.innerHTML = "";
     if (items.length === 0) {
-      list.innerHTML = '<div class="empty-state">No expenses added yet.</div>';
+      list.innerHTML = '<div class="empty-state">No expenses found.</div>';
     } else {
       items.forEach(x => list.appendChild(renderExpenseItem(x)));
     }
-    updateTotalFromList();
+    updateTotalFromList(data.totalAmount);
+    expenseListStatus.textContent = "";
   } catch (error) {
-    list.innerHTML = `<div class="empty-state">${esc(error.message)}</div>`;
-    if (total) total.textContent = "Total: ₹0.00";
+    if (requestSequence !== expenseRequestSequence) return;
+    expensePaginationReady = false;
+    list.innerHTML = '<div class="empty-state">Unable to load expenses. Please try again. <button class="secondary-btn" data-retry-expenses type="button">Retry</button></div>';
+    expenseListStatus.textContent = error.message;
+  } finally {
+    if (requestSequence === expenseRequestSequence) {
+      isLoadingExpenses = false;
+      renderExpensePagination();
+    }
   }
 }
+
+list.addEventListener("click", (event) => {
+  if (event.target.closest("[data-retry-expenses]")) load();
+});
 
 if (authForm) {
   authForm.onsubmit = async e => {
@@ -273,12 +343,7 @@ if (form) {
         body: JSON.stringify(body)
       });
 
-      if (list) {
-        const empty = list.querySelector(".empty-state");
-        if (empty) empty.remove();
-        list.prepend(renderExpenseItem(x));
-      }
-      updateTotalFromList();
+      await load(1);
       msg.textContent = x.category ? `Category: ${x.category}` : "Expense added.";
       form.reset();
     } catch (error) {
@@ -300,11 +365,7 @@ async function del(id) {
       method: "DELETE",
       headers: authHeaders()
     });
-    if (row) row.remove();
-    if (list && !list.querySelector(".expense")) {
-      list.innerHTML = '<div class="empty-state">No expenses added yet.</div>';
-    }
-    updateTotalFromList();
+    await load(expensePage);
     if (msg) msg.textContent = "Expense deleted.";
   } catch (error) {
     if (row) row.style.opacity = "1";

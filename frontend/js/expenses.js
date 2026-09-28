@@ -4,17 +4,17 @@ const descriptionInput = document.getElementById("description");
 const aiSuggestion = document.getElementById("aiSuggestion");
 const pageSizeSelect = document.getElementById("pageSizeSelect");
 const paginationSummary = document.getElementById("paginationSummary");
+const pageNavigation = document.getElementById("pageNavigation");
 const pageIndicator = document.getElementById("pageIndicator");
 const previousPageBtn = document.getElementById("previousPageBtn");
 const nextPageBtn = document.getElementById("nextPageBtn");
+const expenseListStatus = document.getElementById("expenseListStatus");
 
 const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser") || localStorage.getItem("expenseTrackerUser") || "null");
 const authToken = localStorage.getItem("authToken") || localStorage.getItem("expenseTrackerToken");
-const pageSizeOptions = [5, 8, 10, 20, 40];
-const pageSizeStorageKey = `expensePageSize:${String(loggedInUser?.email || "guest").trim().toLowerCase()}`;
-const savedPageSize = Number(localStorage.getItem(pageSizeStorageKey));
+const pageSizeOptions = [5, 10, 20, 30, 40];
+const savedPageSize = Number(localStorage.getItem("expensePageSize"));
 let pageSize = pageSizeOptions.includes(savedPageSize) ? savedPageSize : 10;
-
 function clearStoredAuth() {
   localStorage.removeItem("authToken");
   localStorage.removeItem("expenseTrackerToken");
@@ -40,6 +40,10 @@ let predictedCategory = null;
 let predictedDescription = "";
 let predictedSource = "fallback";
 let currentPage = 1;
+let pagination = { currentPage: 1, pageSize, totalExpenses: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: false };
+let isLoadingExpenses = false;
+let paginationReady = false;
+let expenseRequestSequence = 0;
 
 if (!loggedInUser) {
   window.location.href = "login.html";
@@ -51,14 +55,10 @@ function authHeaders() {
   return headers;
 }
 
-function updateTotalExpense(expenses) {
+function updateTotalExpense(amount) {
   const totalElement = document.getElementById("totalExpenseAmount");
   if (!totalElement) return;
-  if (!Array.isArray(expenses) || expenses.length === 0) {
-    totalElement.textContent = "₹0";
-    return;
-  }
-  const sum = expenses.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const sum = Number(amount) || 0;
   const formatted = sum % 1 === 0 
     ? sum.toLocaleString("en-IN")
     : sum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -66,16 +66,10 @@ function updateTotalExpense(expenses) {
 }
 
 function renderExpenses(expenses) {
-  const allExpenses = Array.isArray(expenses) ? expenses : [];
-  const totalPages = Math.max(1, Math.ceil(allExpenses.length / pageSize));
-  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
-  const startIndex = (currentPage - 1) * pageSize;
-  const visibleExpenses = allExpenses.slice(startIndex, startIndex + pageSize);
-
-  if (allExpenses.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">No expenses recorded yet.</td></tr>';
+  if (!expenses.length) {
+    tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">No expenses found.</td></tr>';
   } else {
-    tableBody.innerHTML = visibleExpenses.map((expense) => `
+    tableBody.innerHTML = expenses.map((expense) => `
       <tr>
         <td>₹${Number(expense.amount).toFixed(2)}</td>
         <td>${expense.description}</td>
@@ -85,36 +79,39 @@ function renderExpenses(expenses) {
       </tr>
     `).join("");
   }
+}
 
-  paginationSummary.textContent = allExpenses.length
-    ? `Showing ${startIndex + 1}-${Math.min(startIndex + pageSize, allExpenses.length)} of ${allExpenses.length}`
+function renderPagination() {
+  const { currentPage: page, pageSize: size, totalExpenses, totalPages } = pagination;
+  const start = totalExpenses ? (page - 1) * size + 1 : 0;
+  paginationSummary.textContent = totalExpenses
+    ? `Showing ${start}-${Math.min(start + size - 1, totalExpenses)} of ${totalExpenses}`
     : "Showing 0 expenses";
-  pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
-  previousPageBtn.disabled = currentPage === 1;
-  nextPageBtn.disabled = currentPage === totalPages;
+  pageIndicator.textContent = `Page ${page} of ${totalPages}`;
+  pageNavigation.hidden = !paginationReady || totalPages <= 1;
+  pageSizeSelect.disabled = isLoadingExpenses;
+  previousPageBtn.disabled = isLoadingExpenses || !pagination.hasPreviousPage;
+  nextPageBtn.disabled = isLoadingExpenses || !pagination.hasNextPage;
 }
 
 pageSizeSelect.value = String(pageSize);
 pageSizeSelect.addEventListener("change", () => {
   const selectedPageSize = Number(pageSizeSelect.value);
-  if (!pageSizeOptions.includes(selectedPageSize)) return;
+  if (isLoadingExpenses || !pageSizeOptions.includes(selectedPageSize)) return;
   pageSize = selectedPageSize;
-  currentPage = 1;
-  localStorage.setItem(pageSizeStorageKey, String(pageSize));
-  renderExpenses(currentExpenses);
+  localStorage.setItem("expensePageSize", String(pageSize));
+  loadExpenses({ page: currentPage });
 });
 
 previousPageBtn.addEventListener("click", () => {
-  if (currentPage > 1) {
-    currentPage -= 1;
-    renderExpenses(currentExpenses);
+  if (!isLoadingExpenses && pagination.hasPreviousPage) {
+    loadExpenses({ page: currentPage - 1 });
   }
 });
 
 nextPageBtn.addEventListener("click", () => {
-  if (currentPage < Math.ceil(currentExpenses.length / pageSize)) {
-    currentPage += 1;
-    renderExpenses(currentExpenses);
+  if (!isLoadingExpenses && pagination.hasNextPage) {
+    loadExpenses({ page: currentPage + 1 });
   }
 });
 
@@ -130,23 +127,49 @@ async function deleteExpense(expenseId) {
       headers: authHeaders()
     });
 
-    currentExpenses = currentExpenses.filter(expense => String(expense.id) !== String(expenseId));
-    renderExpenses(currentExpenses);
-    updateTotalExpense(currentExpenses);
+    await loadExpenses({ page: currentPage });
   } catch (error) {
+    if (button) button.disabled = false;
     window.alert(error.message);
   }
 }
 
-async function loadExpenses() {
+async function loadExpenses({ page = currentPage } = {}) {
   if (!loggedInUser?.email) return;
-  const result = await apiJson("/api/expenses", {
-    headers: authHeaders()
-  });
-  const list = Array.isArray(result) ? result : [];
-  currentExpenses = list;
-  renderExpenses(currentExpenses);
-  updateTotalExpense(currentExpenses);
+  const requestSequence = ++expenseRequestSequence;
+  isLoadingExpenses = true;
+  expenseListStatus.textContent = "Loading expenses...";
+  renderPagination();
+
+  try {
+    const result = await apiJson(`/api/expenses?page=${page}&limit=${pageSize}`, {
+      headers: authHeaders()
+    });
+    if (requestSequence !== expenseRequestSequence) return;
+    if (!Array.isArray(result.expenses) || !result.pagination) {
+      throw new Error("The expenses response was invalid.");
+    }
+
+    currentExpenses = result.expenses;
+    pagination = result.pagination;
+    currentPage = pagination.currentPage;
+    pageSize = pagination.pageSize;
+    pageSizeSelect.value = String(pageSize);
+    paginationReady = true;
+    renderExpenses(currentExpenses);
+    updateTotalExpense(result.totalAmount);
+    expenseListStatus.textContent = "";
+  } catch (error) {
+    if (requestSequence !== expenseRequestSequence) return;
+    tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#9a352d;">Unable to load expenses. Please try again. <button class="pagination-retry" data-retry-expenses type="button">Retry</button></td></tr>';
+    expenseListStatus.textContent = error.message;
+    pageNavigation.hidden = true;
+  } finally {
+    if (requestSequence === expenseRequestSequence) {
+      isLoadingExpenses = false;
+      renderPagination();
+    }
+  }
 }
 
 async function suggestCategory() {
@@ -201,14 +224,7 @@ form.addEventListener("submit", async (event) => {
     predictedDescription = "";
     predictedSource = "fallback";
     aiSuggestion.textContent = "AI category will appear here.";
-    // The API returns the newly-created expense, so update the UI immediately
-    // instead of waiting for two extra network/database requests.
-    if (result && result.id) {
-      currentExpenses = [result, ...currentExpenses];
-      currentPage = 1;
-      renderExpenses(currentExpenses);
-      updateTotalExpense(currentExpenses);
-    }
+    if (result && result.id) await loadExpenses({ page: 1 });
   } catch (error) {
     window.alert(error.message);
   } finally {
@@ -220,6 +236,10 @@ form.addEventListener("submit", async (event) => {
 });
 
 tableBody.addEventListener("click", (event) => {
+  if (event.target.closest("[data-retry-expenses]")) {
+    loadExpenses().catch((error) => window.alert(error.message));
+    return;
+  }
   const deleteButton = event.target.closest("[data-expense-id]");
   if (!deleteButton) {
     return;
@@ -238,7 +258,8 @@ descriptionInput.addEventListener("input", () => {
   }, 400);
 });
 
-loadExpenses().catch((error) => window.alert(error.message));
+renderPagination();
+loadExpenses();
 
 const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {

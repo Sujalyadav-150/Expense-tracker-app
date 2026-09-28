@@ -34,8 +34,8 @@ const expenseSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Covers the most common expense-list query: one user, newest first.
-expenseSchema.index({ email: 1, createdAt: -1 });
+// Covers the paginated user query with a stable newest-first tie-breaker.
+expenseSchema.index({ email: 1, createdAt: -1, _id: -1 });
 expenseSchema.index({ id: 1 });
 
 module.exports = mongoose.models.Expense || mongoose.model("Expense", expenseSchema);

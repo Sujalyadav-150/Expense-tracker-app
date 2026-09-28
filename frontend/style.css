@@ -1,4 +1,19 @@
  .leaderboard-card { overflow: hidden; }
+.expense-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0; font-size: 13px; color: #aab4bb; }
+.expense-pagination label { font-weight: 700; }
+.expense-pagination select { width: auto; min-width: 75px; padding: 8px 10px; }
+.expense-pagination nav { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.expense-pagination nav[hidden] { display: none; }
+.expense-pagination nav button { width: auto; padding: 8px 11px; }
+.expense-pagination nav button:disabled { opacity: .5; cursor: not-allowed; }
+.expense-pagination nav span { min-width: 86px; text-align: center; }
+.expense-list-status { color: #aab4bb; font-size: 13px; }
+.expense-list-status:empty { display: none; }
+.expense-pagination-summary { color: #aab4bb; }
+@media (max-width: 600px) {
+	.expense-pagination nav { margin-left: 0; }
+	.expense-pagination-summary { flex-basis: 100%; }
+}
  .section-label { color: var(--accent, #f5c451); font-size: 11px; font-weight: 700; letter-spacing: 2px; }
  .leaderboard-summary { display: flex; flex-wrap: wrap; gap: 18px; margin: 18px 0; color: #aab4bb; font-size: 13px; }
  .leaderboard-summary strong { color: #fff; }

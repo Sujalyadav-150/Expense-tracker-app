@@ -245,7 +245,9 @@ POST /api/auth/login
 
 Expenses
 
-GET /api/expenses
+GET /api/expenses?page=1&limit=10
+
+Expense pages are scoped to the authenticated user. Supported page sizes are 5, 10, 20, 30, and 40. The response includes `expenses`, `pagination` metadata (`currentPage`, `pageSize`, `totalExpenses`, `totalPages`, `hasNextPage`, and `hasPreviousPage`), and the all-time `totalAmount`.
 
 POST /api/expenses
 

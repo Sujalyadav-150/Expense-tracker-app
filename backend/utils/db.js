@@ -98,6 +98,47 @@ async function getExpenses(email) {
   }));
 }
 
+async function getExpensesPage(email, { page = 1, limit = 10 } = {}) {
+  await ensureDatabase();
+  const filter = { email: normalizeEmail(email) };
+  const [totalExpenses, totals] = await Promise.all([
+    Expense.countDocuments(filter),
+    Expense.aggregate([
+      { $match: filter },
+      { $group: { _id: null, totalAmount: { $sum: "$amount" } } }
+    ])
+  ]);
+  const totalPages = Math.ceil(totalExpenses / limit);
+  const currentPage = Math.min(page, Math.max(totalPages, 1));
+  const expenses = await Expense.find(filter)
+    .select({ _id: 0, id: 1, amount: 1, description: 1, category: 1, categorySource: 1, aiSuggested: 1, createdAt: 1 })
+    .sort({ createdAt: -1, _id: -1 })
+    .skip((currentPage - 1) * limit)
+    .limit(limit)
+    .lean();
+
+  return {
+    expenses: expenses.map((expense) => ({
+      id: expense.id,
+      amount: expense.amount,
+      description: expense.description,
+      category: expense.category,
+      categorySource: expense.categorySource || "fallback",
+      aiSuggested: Boolean(expense.aiSuggested),
+      createdAt: expense.createdAt
+    })),
+    pagination: {
+      currentPage,
+      pageSize: limit,
+      totalExpenses,
+      totalPages,
+      hasNextPage: currentPage < totalPages,
+      hasPreviousPage: currentPage > 1
+    },
+    totalAmount: Number(totals[0]?.totalAmount || 0)
+  };
+}
+
 function makeExpenseId() {
   return Date.now() * 1000 + Math.floor(Math.random() * 1000);
 }
@@ -251,6 +292,7 @@ module.exports = {
   createUser,
   updateUserPassword,
   getExpenses,
+  getExpensesPage,
   addExpense,
   deleteExpense,
   getLeaderboard,
