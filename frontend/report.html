@@ -1,2 +1,57 @@
-<h1>Expense Report</h1>
-<!-- Premium report frontend will be implemented here. -->
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Expense Report | Expense Tracker</title>
+	<link rel="stylesheet" href="style.css">
+</head>
+<body class="report-body">
+	<main class="report-shell">
+		<header class="report-header">
+			<div>
+				<span class="report-kicker">FINANCIAL OVERVIEW</span>
+				<h1>Expense Report</h1>
+				<p id="reportPeriodLabel">Daily report</p>
+			</div>
+			<a class="report-back" href="/">Back to dashboard</a>
+		</header>
+
+		<section class="report-panel" aria-label="Expense report">
+			<div class="report-toolbar">
+				<div class="report-periods" role="group" aria-label="Report period">
+					<button type="button" data-period="daily" aria-pressed="true">Daily</button>
+					<button type="button" data-period="weekly" aria-pressed="false">Weekly</button>
+					<button type="button" data-period="monthly" aria-pressed="false">Monthly</button>
+				</div>
+				<button id="downloadReport" class="report-download" type="button" disabled>Download Report</button>
+			</div>
+			<p id="reportStatus" class="report-status" role="status" aria-live="polite">Loading report...</p>
+			<p id="premiumNotice" class="premium-notice" hidden></p>
+
+			<div class="report-summary" aria-label="Report totals">
+				<div><span>Total Income</span><strong id="totalIncome">₹0</strong></div>
+				<div><span>Total Expense</span><strong id="totalExpense">₹0</strong></div>
+				<div><span>Savings</span><strong id="totalSavings">₹0</strong></div>
+			</div>
+
+			<div class="report-table-wrap">
+				<table class="report-table">
+					<thead>
+						<tr>
+							<th scope="col">Date</th>
+							<th scope="col">Description</th>
+							<th scope="col">Category</th>
+							<th scope="col">Income</th>
+							<th scope="col">Expense</th>
+						</tr>
+					</thead>
+					<tbody id="reportRows"></tbody>
+				</table>
+			</div>
+			<p class="report-data-note">Salary-category records are counted as income.</p>
+		</section>
+	</main>
+	<script src="js/report.js"></script>
+</body>
+</html>
