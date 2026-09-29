@@ -7,6 +7,7 @@ require("dotenv").config();
 const authRoutes = require("./routes/authRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
 const aiRoutes = require("./routes/aiRoutes");
+const purchaseRoutes = require("./routes/purchaseRoutes");
 const expenseController = require("./controllers/expenseController");
 const authMiddleware = require("./middleware/auth");
 const database = require("./config/database");
@@ -71,6 +72,8 @@ app.get("/api/health", async (req, res) => {
 // --- API Routes ---
 app.use("/api/auth", authRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.use("/api/purchase", authMiddleware, purchaseRoutes);
+app.use("/purchase", authMiddleware, purchaseRoutes);
 app.get("/api/leaderboard", authMiddleware, expenseController.getLeaderboard);
 app.use("/api/ai", aiRoutes);
 

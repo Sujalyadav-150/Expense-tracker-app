@@ -2,6 +2,7 @@ const reportRows = document.getElementById("reportRows");
 const reportStatus = document.getElementById("reportStatus");
 const reportPeriodLabel = document.getElementById("reportPeriodLabel");
 const downloadButton = document.getElementById("downloadReport");
+const pdfButton = document.getElementById("downloadPdf");
 const premiumNotice = document.getElementById("premiumNotice");
 const reportDateInput = document.getElementById("reportDate");
 const periodButtons = [...document.querySelectorAll("[data-period]")];
@@ -71,14 +72,17 @@ function getPeriodRange(period, anchorDate = new Date()) {
     if (period === "daily") {
         end.setDate(end.getDate() + 1);
     } else if (period === "weekly") {
-        const daysSinceMonday = (start.getDay() + 6) % 7;
-        start.setDate(start.getDate() - daysSinceMonday);
+        start.setDate(start.getDate() - start.getDay());
         end.setTime(start.getTime());
         end.setDate(end.getDate() + 7);
-    } else {
+    } else if (period === "monthly") {
         start.setDate(1);
         end.setTime(start.getTime());
         end.setMonth(end.getMonth() + 1);
+    } else {
+        start.setMonth(0, 1);
+        end.setTime(start.getTime());
+        end.setFullYear(end.getFullYear() + 1);
     }
 
     return { start, end };
@@ -91,7 +95,10 @@ function periodLabel(period, range) {
         lastDay.setDate(lastDay.getDate() - 1);
         return `Weekly report · ${formatDate(range.start)} – ${formatDate(lastDay)}`;
     }
-    return `Monthly report · ${new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(range.start)}`;
+    if (period === "monthly") {
+        return `Monthly report · ${new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(range.start)}`;
+    }
+    return `Yearly report · ${new Intl.DateTimeFormat("en-IN", { year: "numeric" }).format(range.start)}`;
 }
 
 function escapeHtml(value) {
@@ -106,24 +113,11 @@ function escapeHtml(value) {
 
 function setDownloadState() {
     downloadButton.disabled = !isPremium || isLoading || !reportLoaded;
+    pdfButton.disabled = !isPremium || isLoading || !reportLoaded;
+    downloadButton.textContent = `📥 Download ${periodFileName("csv")}`;
+    pdfButton.textContent = `📄 Download ${periodFileName("pdf")}`;
     premiumNotice.hidden = isPremium !== false;
-    premiumNotice.textContent = isPremium === false ? "Download disabled: only the highest-spending user can download reports." : "";
-    downloadButton.title = isPremium === false ? "CSV downloads are available to the highest-spending user." : "";
-}
-
-function isHighestSpender(rows) {
-    const leaderboard = Array.isArray(rows) ? rows : [];
-    const currentUser = leaderboard.find((row) => row?.isCurrentUser);
-    if (!currentUser) return false;
-
-    const currentTotal = Number(currentUser.totalExpense) || 0;
-    const highestTotal = leaderboard.reduce((highest, row) => {
-        return Math.max(highest, Number(row?.totalExpense) || 0);
-    }, 0);
-
-    // A user with no expenses should not become Premium just because
-    // every account currently has the same zero total.
-    return currentTotal > 0 && currentTotal >= highestTotal;
+    premiumNotice.textContent = isPremium === false ? "Download disabled: Premium membership is required." : "";
 }
 
 function renderReport() {
@@ -184,12 +178,11 @@ async function loadExpenses() {
     setDownloadState();
 
     try {
-        const [, firstPage, leaderboardResponse] = await Promise.all([
+        const [session, firstPage] = await Promise.all([
             apiJson("/api/auth/me"),
-            apiJson("/api/expenses?page=1&limit=40"),
-            apiJson("/api/leaderboard")
+            apiJson("/api/expenses?page=1&limit=40")
         ]);
-        isPremium = isHighestSpender(leaderboardResponse.leaderboard);
+        isPremium = session.user?.isPremium === true || session.user?.ispremiumuser === true;
         expenses = Array.isArray(firstPage.expenses) ? [...firstPage.expenses] : [];
 
         const totalPages = Number(firstPage.pagination?.totalPages) || 0;
@@ -213,6 +206,58 @@ async function loadExpenses() {
     }
 }
 
+function periodFileName(extension) {
+    const label = selectedPeriod[0].toUpperCase() + selectedPeriod.slice(1);
+    return `${label}_Report.${extension}`;
+}
+
+async function downloadReportFile(format, button) {
+    if (!isPremium || isLoading || !reportLoaded) return;
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = `Preparing ${periodFileName(format)}...`;
+
+    try {
+        const params = new URLSearchParams({
+            period: selectedPeriod,
+            date: reportDateInput.value || toDateInputValue(new Date()),
+            format
+        });
+        const response = await fetch(`/api/expenses/report?${params.toString()}`, { headers: authHeaders() });
+        if (response.status === 401) {
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("expenseTrackerToken");
+            window.location.href = "/";
+            return;
+        }
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || "Unable to download report.");
+        }
+
+        const blob = await response.blob();
+        const disposition = response.headers.get("Content-Disposition") || "";
+        const filenameMatch = disposition.match(/filename="([^"]+)"/i);
+        const filename = filenameMatch?.[1] || periodFileName(format);
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        window.setTimeout(() => {
+            link.remove();
+            URL.revokeObjectURL(blobUrl);
+        }, 1000);
+        reportStatus.textContent = `${filename} downloaded.`;
+    } catch (error) {
+        reportStatus.textContent = error.message || "Unable to download report.";
+    } finally {
+        button.textContent = originalText;
+        setDownloadState();
+    }
+}
+
 periodButtons.forEach((button) => {
     button.addEventListener("click", () => {
         if (isLoading) return;
@@ -226,58 +271,12 @@ reportDateInput.addEventListener("change", () => {
     if (!isLoading) renderReport();
 });
 
-function csvCell(value) {
-    let safeValue = String(value ?? "");
-    if (/^[=+\-@]/.test(safeValue)) safeValue = `'${safeValue}`;
-    return `"${safeValue.replace(/"/g, '""')}"`;
-}
-
-function downloadCsv(filename, csv) {
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-
-    // Keep the legacy browser path for environments that do not support
-    // <a download>, while using a real DOM anchor for modern browsers.
-    if (typeof navigator.msSaveOrOpenBlob === "function") {
-        navigator.msSaveOrOpenBlob(blob, filename);
-        return;
-    }
-
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = filename;
-    link.setAttribute("aria-hidden", "true");
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-
-    // Revoke only after the browser has started the download.
-    window.setTimeout(() => {
-        link.remove();
-        URL.revokeObjectURL(blobUrl);
-    }, 1000);
-}
-
 downloadButton.addEventListener("click", () => {
-    if (!isPremium || isLoading || !reportLoaded) return;
+    downloadReportFile("csv", downloadButton);
+});
 
-    const lines = [
-        [reportPeriodLabel.textContent],
-        ["Date", "Description", "Category", "Income", "Expense"],
-        ...visibleRows.map(({ expense, date }) => {
-            const amount = Number(expense.amount) || 0;
-            const income = String(expense.type || "").toLowerCase() === "income" || String(expense.category || "").toLowerCase() === "salary";
-            return [formatDate(date), expense.description, expense.category || "Other", income ? amount.toFixed(2) : "", income ? "" : amount.toFixed(2)];
-        }),
-        [],
-        ["Total Income", visibleTotals.income.toFixed(2)],
-        ["Total Expense", visibleTotals.expense.toFixed(2)],
-        ["Savings", (visibleTotals.income - visibleTotals.expense).toFixed(2)]
-    ];
-    const csv = `\uFEFF${lines.map((line) => line.map(csvCell).join(",")).join("\r\n")}`;
-    const dateSuffix = reportDateInput.value || toDateInputValue(new Date());
-    downloadCsv(`${selectedPeriod}-expense-report-${dateSuffix}.csv`, csv);
-    reportStatus.textContent = "Report downloaded as CSV.";
+pdfButton.addEventListener("click", () => {
+    downloadReportFile("pdf", pdfButton);
 });
 
 loadExpenses();

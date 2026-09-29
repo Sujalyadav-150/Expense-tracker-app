@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const { connectDB } = require("../config/database");
 const User = require("../models/User");
 const Expense = require("../models/Expense");
+const Order = require("../models/Order");
 const PasswordResetToken = require("../models/PasswordResetToken");
 
 async function ensureDatabase() {
@@ -36,7 +37,8 @@ async function getUser(email) {
         name: user.name || "User",
         password: user.password,
         email: user.email,
-        isPremium: Boolean(user.isPremium)
+        isPremium: Boolean(user.isPremium),
+        ispremiumuser: Boolean(user.ispremiumuser || user.isPremium)
       }
     : null;
 }
@@ -54,7 +56,8 @@ async function createUser({ name, email, password, isPremium = false }) {
       id: String(user._id),
       name: user.name,
       email: user.email,
-      isPremium: Boolean(user.isPremium)
+      isPremium: Boolean(user.isPremium),
+      ispremiumuser: Boolean(user.ispremiumuser || user.isPremium)
     };
   } catch (error) {
     if (error?.code === 11000) {
@@ -79,6 +82,65 @@ async function updateUserPassword(email, hashedPassword) {
     throw error;
   }
   return true;
+}
+
+async function createPremiumOrder({ userId, email, orderId, amount = 199, paymentSessionId }) {
+  await ensureDatabase();
+  return Order.create({
+    userId,
+    email: normalizeEmail(email),
+    orderId,
+    amount: Number(amount),
+    paymentSessionId,
+    status: "PENDING"
+  });
+}
+
+async function updatePremiumOrder(orderId, email, status) {
+  await ensureDatabase();
+  return Order.findOneAndUpdate(
+    { orderId, email: normalizeEmail(email) },
+    { status },
+    { new: true }
+  ).lean();
+}
+
+async function markUserPremium(email) {
+  await ensureDatabase();
+  const user = await User.findOneAndUpdate(
+    { email: normalizeEmail(email) },
+    { isPremium: true, ispremiumuser: true },
+    { new: true }
+  ).lean();
+  return user
+    ? {
+        id: String(user._id),
+        name: user.name || "User",
+        email: user.email,
+        isPremium: true,
+        ispremiumuser: true
+      }
+    : null;
+}
+
+async function getExpensesInRange(email, start, end) {
+  await ensureDatabase();
+  const expenses = await Expense.find({
+    email: normalizeEmail(email),
+    createdAt: { $gte: start, $lt: end }
+  })
+    .select({ _id: 0, id: 1, amount: 1, description: 1, category: 1, categorySource: 1, aiSuggested: 1, createdAt: 1 })
+    .sort({ createdAt: 1, id: 1 })
+    .lean();
+  return expenses.map((expense) => ({
+    id: expense.id,
+    amount: Number(expense.amount || 0),
+    description: expense.description,
+    category: expense.category,
+    categorySource: expense.categorySource || "fallback",
+    aiSuggested: Boolean(expense.aiSuggested),
+    createdAt: expense.createdAt
+  }));
 }
 
 async function getExpenses(email) {
@@ -182,11 +244,6 @@ async function deleteExpense(email, expenseId) {
   return true;
 }
 
-function isHiddenLeaderboardName(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  return normalized.startsWith("prem");
-}
-
 async function getLeaderboard(currentEmail) {
   await ensureDatabase();
   return User.aggregate([
@@ -210,20 +267,45 @@ async function getLeaderboard(currentEmail) {
     {
       $match: {
         $expr: {
-          $not: {
-            $in: [
-              {
-                $trim: {
-                  input: {
-                    $toLower: {
-                      $ifNull: ["$name", ""]
+          $and: [
+            {
+              $not: {
+                $in: [
+                  {
+                    $trim: {
+                      input: {
+                        $toLower: {
+                          $ifNull: ["$name", ""]
+                        }
+                      }
+                    }
+                  },
+                  ["nitin", "ansh", "anki", "dummy", "test"]
+                ]
+              }
+            },
+            {
+              $not: {
+                $regexMatch: {
+                  input: { $toLower: { $ifNull: ["$email", ""] } },
+                  regex: "@(example\\.com|test\\.com|dummy\\.com)$"
+                }
+              }
+            },
+            {
+              $or: [
+                {
+                  $not: {
+                    $regexMatch: {
+                      input: { $toLower: { $ifNull: ["$name", ""] } },
+                      regex: "^prem"
                     }
                   }
-                }
-              },
-              ["prem"]
-            ]
-          }
+                },
+                { $eq: [{ $toLower: "$email" }, "prem9771190912@gmail.com"] }
+              ]
+            }
+          ]
         }
       }
     },
@@ -249,7 +331,7 @@ async function getLeaderboard(currentEmail) {
     isCurrentUser: normalizeEmail(row.email) === normalizeEmail(currentEmail),
     totalExpense: Number(row.totalExpense || 0),
     expenseCount: Number(row.expenseCount || 0)
-  }))).then((rows) => rows.filter((row) => !isHiddenLeaderboardName(row.name)));
+  })));
 }
 
 async function createResetToken({ email, rawToken, expiresInMs = 900000 }) {
@@ -291,8 +373,12 @@ module.exports = {
   getUser,
   createUser,
   updateUserPassword,
+  createPremiumOrder,
+  updatePremiumOrder,
+  markUserPremium,
   getExpenses,
   getExpensesPage,
+  getExpensesInRange,
   addExpense,
   deleteExpense,
   getLeaderboard,

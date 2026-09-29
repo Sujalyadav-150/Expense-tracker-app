@@ -9,7 +9,13 @@ const JWT_SECRET = process.env.JWT_SECRET;
 function generateToken(user) {
   if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is required.");
   return jwt.sign(
-    { id: user.id || user._id || user.email, email: user.email, name: user.name || "User" },
+    {
+      id: user.id || user._id || user.email,
+      email: user.email,
+      name: user.name || "User",
+      ispremiumuser: Boolean(user.ispremiumuser || user.isPremium),
+      isPremium: Boolean(user.isPremium || user.ispremiumuser)
+    },
     JWT_SECRET,
     { expiresIn: "30d" }
   );
@@ -54,7 +60,7 @@ exports.register = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Account created successfully.",
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, isPremium: false, ispremiumuser: false },
       token
     });
   } catch (error) {
@@ -95,7 +101,13 @@ exports.login = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Login successful.",
-      user: { id: user.id, name: user.name, email: user.email, isPremium: !!user.isPremium },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isPremium: !!user.isPremium,
+        ispremiumuser: !!(user.ispremiumuser || user.isPremium)
+      },
       token
     });
   } catch (error) {
@@ -181,7 +193,16 @@ exports.me = async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ success: false, message: "Not authenticated" });
     }
-    return res.json({ success: true, user: { id: req.user.id, name: req.user.name, email: req.user.email, isPremium: req.user.isPremium } });
+    return res.json({
+      success: true,
+      user: {
+        id: req.user.id,
+        name: req.user.name,
+        email: req.user.email,
+        isPremium: Boolean(req.user.isPremium || req.user.ispremiumuser),
+        ispremiumuser: Boolean(req.user.ispremiumuser || req.user.isPremium)
+      }
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Internal server error." });
   }

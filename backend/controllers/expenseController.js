@@ -1,5 +1,8 @@
 const db = require("../utils/db");
 const { categorizeExpense } = require("../services/aiService");
+const { buildReport } = require("../services/reportService");
+const { createCsvReport } = require("../services/csvReportService");
+const { createPdfReport } = require("../services/pdfReportService");
 
 const CATEGORIES = new Set([
   "Food",
@@ -127,6 +130,60 @@ exports.getLeaderboard = async (req, res) => {
       return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
     }
     return res.status(500).json({ success: false, message: "Unable to load leaderboard." });
+  }
+};
+
+exports.downloadReport = async (req, res) => {
+  try {
+    if (!req.user.isPremium && !req.user.ispremiumuser) {
+      return res.status(403).json({
+        success: false,
+        message: "Access Denied: Only users with premium membership can download reports."
+      });
+    }
+
+    const format = String(req.query.format || "").toLowerCase();
+    const report = await buildReport(
+      req.user.email,
+      req.user.name,
+      req.query.period,
+      req.query.date
+    );
+
+    if (format === "csv" || String(req.headers.accept || "").includes("text/csv")) {
+      const csv = createCsvReport(report);
+      res.set({
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${report.fileName}.csv"`
+      });
+      return res.send(csv);
+    }
+
+    if (format === "pdf") {
+      const pdf = await createPdfReport(report);
+      res.set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${report.fileName}.pdf"`
+      });
+      return res.send(pdf);
+    }
+
+    return res.json({
+      success: true,
+      fileName: report.fileName,
+      period: report.period,
+      dateRange: report.dateRange,
+      totalIncome: report.totalIncome,
+      totalExpense: report.totalExpense,
+      savings: report.savings,
+      transactions: report.transactions
+    });
+  } catch (error) {
+    console.error("downloadReport error:", error.message);
+    if (db.isDatabaseError(error)) {
+      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    }
+    return res.status(500).json({ success: false, message: "Could not generate report." });
   }
 };
 

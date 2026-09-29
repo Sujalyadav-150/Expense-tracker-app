@@ -18,6 +18,9 @@
 .expense-pagination-summary { color: #aab4bb; }
 .report-link { display: inline-flex; align-items: center; justify-content: center; padding: 13px; border: 1px solid #39464e; border-radius: 8px; color: #f5c451; font-weight: 700; text-decoration: none; white-space: nowrap; }
 .report-link:hover { background: #202a30; }
+.premium-btn { background: #f5c451; color: #17130a; }
+.premium-badge { display: inline-flex; align-items: center; justify-content: center; padding: 12px 13px; border: 1px solid #55e69b; border-radius: 8px; color: #55e69b; font-weight: 700; white-space: nowrap; }
+.premium-banner { margin: -8px 0 20px; padding: 13px 16px; border: 1px solid #55e69b; border-radius: 10px; background: #10271c; color: #a7f3d0; font-weight: 700; }
 .report-body { min-height: 100vh; background: #0d1117; color: #eee; }
 .report-shell { width: min(1120px, 92%); margin: 38px auto; }
 .report-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
@@ -35,7 +38,9 @@
 .report-periods button:hover:not([aria-pressed="true"]) { background: #202a30; }
 .report-date-filter { display: flex; align-items: center; gap: 8px; color: #aab4bb; font-size: 12px; font-weight: 700; }
 .report-date-filter input { width: auto; padding: 9px 10px; color-scheme: dark; }
+.report-downloads { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .report-download { width: auto; padding: 11px 15px; background: #22c55e; color: #06130a; }
+.report-pdf { background: #5b8def; color: #fff; }
 .report-download:disabled { border-color: #39464e; background: #29343c; color: #8c979e; cursor: not-allowed; }
 .report-status, .premium-notice { min-height: 20px; margin: 0 0 14px; color: #aab4bb; font-size: 13px; }
 .premium-notice { color: #ffb454; }
@@ -59,11 +64,12 @@
 	.report-panel { padding: 17px; }
 	.report-toolbar { align-items: stretch; flex-direction: column; }
 .report-filters { align-items: stretch; flex-direction: column; }
-	.report-periods { display: grid; grid-template-columns: repeat(3, 1fr); }
+.report-periods { display: grid; grid-template-columns: repeat(4, 1fr); }
 	.report-periods button { padding: 9px 7px; }
 .report-date-filter { justify-content: space-between; }
 .report-date-filter input { flex: 1; }
-	.report-download { width: 100%; }
+.report-downloads { flex-direction: column; }
+.report-download { width: 100%; }
 	.report-summary { grid-template-columns: 1fr; }
 	.report-summary > div { grid-template-columns: 1fr auto; align-items: center; }
 	.report-summary strong { font-size: 18px; }

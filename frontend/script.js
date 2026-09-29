@@ -21,6 +21,9 @@ const list = document.getElementById("list");
 const total = document.getElementById("total");
 const insight = document.getElementById("insight");
 const insightBtn = document.getElementById("insightBtn");
+const buyPremiumBtn = document.getElementById("buyPremiumBtn");
+const premiumUserBadge = document.getElementById("premiumUserBadge");
+const premiumBanner = document.getElementById("premiumBanner");
 const amount = document.getElementById("amount");
 const description = document.getElementById("description");
 const category = document.getElementById("category");
@@ -104,7 +107,60 @@ function updatePremiumState() {
   const isLogged = Boolean(currentUser);
   if (authScreen) authScreen.hidden = isLogged;
   if (trackerApp) trackerApp.hidden = !isLogged;
+  const isPremium = Boolean(currentUser?.isPremium || currentUser?.ispremiumuser);
+  if (buyPremiumBtn) buyPremiumBtn.hidden = !isLogged || isPremium;
+  if (premiumUserBadge) premiumUserBadge.hidden = !isLogged || !isPremium;
+  if (premiumBanner) premiumBanner.hidden = !isLogged || !isPremium;
 }
+
+async function buyPremiumMembership() {
+  if (!buyPremiumBtn || !authToken || currentUser?.isPremium) return;
+  buyPremiumBtn.disabled = true;
+  buyPremiumBtn.textContent = "Creating order...";
+
+  try {
+    const order = await request("/api/purchase/premium", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() }
+    });
+
+    const paid = window.confirm(
+      `Cashfree Sandbox Payment\n\nOrder: ${order.order_id}\nAmount: ₹${Number(order.amount || 199).toFixed(2)}\n\nPress OK to simulate Pay or Cancel to cancel.`
+    );
+    const result = await request("/api/purchase/update-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({
+        orderId: order.order_id,
+        status: paid ? "SUCCESSFUL" : "FAILED",
+        testSuccess: paid
+      })
+    });
+
+    if (!paid || !result.success) {
+      window.alert("TRANSACTION FAILED");
+      return;
+    }
+
+    authToken = result.token;
+    currentUser = result.user || { ...currentUser, isPremium: true, ispremiumuser: true };
+    localStorage.setItem("authToken", authToken);
+    localStorage.setItem("expenseTrackerToken", authToken);
+    localStorage.setItem("loggedInUser", JSON.stringify(currentUser));
+    localStorage.setItem("expenseTrackerUser", JSON.stringify(currentUser));
+    updatePremiumState();
+    window.alert("Transaction Successful");
+  } catch (error) {
+    window.alert(error.message || "TRANSACTION FAILED");
+  } finally {
+    if (buyPremiumBtn) {
+      buyPremiumBtn.disabled = false;
+      buyPremiumBtn.textContent = "⭐ Buy Premium Membership";
+    }
+  }
+}
+
+if (buyPremiumBtn) buyPremiumBtn.addEventListener("click", buyPremiumMembership);
 
 function formatCurrency(value) {
   return `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;

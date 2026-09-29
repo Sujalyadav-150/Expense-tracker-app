@@ -20,6 +20,10 @@ const userSchema = new mongoose.Schema({
   isPremium: {
     type: Boolean,
     default: false
+  },
+  ispremiumuser: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

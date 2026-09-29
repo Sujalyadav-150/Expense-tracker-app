@@ -24,13 +24,17 @@
 <button type="button" data-period="daily" aria-pressed="true">Daily</button>
 <button type="button" data-period="weekly" aria-pressed="false">Weekly</button>
 <button type="button" data-period="monthly" aria-pressed="false">Monthly</button>
+<button type="button" data-period="yearly" aria-pressed="false">Yearly</button>
 </div>
 <label class="report-date-filter" for="reportDate">
 Report date
 <input id="reportDate" type="date" aria-label="Choose the date for this report">
 </label>
 				</div>
-<button id="downloadReport" class="report-download" type="button" disabled aria-describedby="premiumNotice">Download CSV</button>
+<div class="report-downloads">
+<button id="downloadReport" class="report-download" type="button" disabled aria-describedby="premiumNotice">📥 Download Daily_Report.csv</button>
+<button id="downloadPdf" class="report-download report-pdf" type="button" disabled aria-describedby="premiumNotice">📄 Download Daily_Report.pdf</button>
+</div>
 			</div>
 			<p id="reportStatus" class="report-status" role="status" aria-live="polite">Loading report...</p>
 			<p id="premiumNotice" class="premium-notice" hidden></p>
@@ -55,7 +59,7 @@ Report date
 					<tbody id="reportRows"></tbody>
 				</table>
 			</div>
-<p class="report-data-note">Salary-category records are counted as income. CSV download is available to the highest-spending user.</p>
+<p class="report-data-note">Salary-category records are counted as income. CSV and PDF downloads require Premium membership.</p>
 		</section>
 	</main>
 	<script src="js/report.js"></script>

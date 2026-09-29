@@ -32,8 +32,9 @@
             <div><span>AI POWERED</span>
                 <h1>Smart Expense Tracker</h1>
                 <p>Let AI understand your spending.</p>
-            </div><div class="header-actions"><button id="insightBtn">✨ AI Spending Insight</button><a class="report-link" href="/report.html">Expense Report</a><button id="logoutBtn" class="logout-btn" type="button">Logout</button></div>
+            </div><div class="header-actions"><button id="insightBtn">✨ AI Spending Insight</button><a class="report-link" href="/report.html">Expense Report</a><button id="buyPremiumBtn" class="premium-btn" type="button">⭐ Buy Premium Membership</button><div id="premiumUserBadge" class="premium-badge" hidden>👑 Premium User</div><button id="logoutBtn" class="logout-btn" type="button">Logout</button></div>
         </header>
+        <div id="premiumBanner" class="premium-banner" hidden>🎉 You are a Premium User Now</div>
         <section class="card">
             <h2>Add Expense</h2>
             <form id="form"><input id="amount" type="number" min="1" step=".01" placeholder="Amount" required><input
