@@ -19,10 +19,10 @@ const premiumBadge       = document.getElementById("premiumBadge");
 const reportDateInput    = document.getElementById("reportDate");
 const notificationBanner = document.getElementById("notificationBanner");
 const periodButtons      = [...document.querySelectorAll("[data-period]")];
-const totalIncomeEl      = document.getElementById("totalIncome");
 const totalExpenseEl     = document.getElementById("totalExpense");
-const totalSavingsEl     = document.getElementById("totalSavings");
 const txCountEl          = document.getElementById("transactionCount");
+const averageExpenseEl   = document.getElementById("averageExpense");
+const categoryCountEl    = document.getElementById("categoryCount");
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -134,10 +134,6 @@ function buildPeriodLabel(period, range) {
   return `Yearly report · ${range.start.getFullYear()}`;
 }
 
-function isIncomeEntry(expense) {
-  return String(expense.type || "").toLowerCase() === "income"
-      || String(expense.category || "").toLowerCase() === "salary";
-}
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -171,32 +167,27 @@ function renderReport() {
     .filter(({ date }) => date && !isNaN(date.getTime()) && date >= range.start && date < range.end)
     .sort((a, b) => b.date - a.date);
 
-  // KPI totals.
-  const totals = rows.reduce((acc, { exp }) => {
-    const amt = Number(exp.amount) || 0;
-    if (isIncomeEntry(exp)) acc.income += amt;
-    else                    acc.expense += amt;
-    return acc;
-  }, { income: 0, expense: 0 });
+  // Expense-only summary.
+  const totalExpense = rows.reduce((sum, { exp }) => sum + (Number(exp.amount) || 0), 0);
+  const averageExpense = rows.length ? totalExpense / rows.length : 0;
+  const categories = new Set(rows.map(({ exp }) => String(exp.category || "Other").trim()).filter(Boolean));
 
-  totalIncomeEl.textContent  = formatCurrency(totals.income);
-  totalExpenseEl.textContent = formatCurrency(totals.expense);
-  totalSavingsEl.textContent = formatCurrency(totals.income - totals.expense);
-  txCountEl.textContent      = String(rows.length);
+  totalExpenseEl.textContent = formatCurrency(totalExpense);
+  averageExpenseEl.textContent = formatCurrency(averageExpense);
+  txCountEl.textContent = String(rows.length);
+  categoryCountEl.textContent = String(categories.size);
 
   // Table rows.
   if (!rows.length) {
-    reportRows.innerHTML = `<tr><td colspan="5" class="report-empty">No expenses found for this period.</td></tr>`;
+    reportRows.innerHTML = `<tr><td colspan="4" class="report-empty">No expenses found for this period.</td></tr>`;
   } else {
     reportRows.innerHTML = rows.map(({ exp, date }) => {
-      const income = isIncomeEntry(exp);
-      const amt    = Number(exp.amount) || 0;
+      const amt = Number(exp.amount) || 0;
       return `<tr>
         <td>${escapeHtml(formatDate(date))}</td>
         <td>${escapeHtml(exp.description)}</td>
         <td><span class="category-chip">${escapeHtml(exp.category || "Other")}</span></td>
-        <td>${income ? escapeHtml(formatCurrency(amt)) : "—"}</td>
-        <td>${income ? "—" : escapeHtml(formatCurrency(amt))}</td>
+        <td class="amount-cell">${escapeHtml(formatCurrency(amt))}</td>
       </tr>`;
     }).join("");
   }
@@ -255,7 +246,7 @@ async function loadExpenses() {
   } catch (err) {
     reportLoaded             = false;
     reportStatus.textContent = err.message || "Unable to load report data.";
-    reportRows.innerHTML = `<tr><td class="report-empty" colspan="5">Unable to load report data. Please try again.</td></tr>`;
+    reportRows.innerHTML = `<tr><td class="report-empty" colspan="4">Unable to load report data. Please try again.</td></tr>`;
   } finally {
     isLoading = false;
     renderReport();
