@@ -166,9 +166,7 @@ exports.downloadReport = async (req, res) => {
         fileName: report.fileName,
         period: report.period,
         dateRange: report.dateRange,
-        totalIncome: report.totalIncome,
         totalExpense: report.totalExpense,
-        savings: report.savings,
         transactions: [],
         message: "No expenses found for the selected period."
       });
@@ -197,9 +195,7 @@ exports.downloadReport = async (req, res) => {
       fileName: report.fileName,
       period: report.period,
       dateRange: report.dateRange,
-      totalIncome: report.totalIncome,
       totalExpense: report.totalExpense,
-      savings: report.savings,
       transactions: report.transactions
     });
   } catch (error) {
