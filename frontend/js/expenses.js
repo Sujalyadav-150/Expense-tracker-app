@@ -171,7 +171,7 @@ function formatDate(isoString) {
 function renderExpenses(expenses) {
   if (!expenses.length) {
     tableBody.innerHTML =
-      '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">No expenses found. Add your first expense above.</td></tr>';
+      '<tr><td colspan="6" class="expense-empty">No expenses found. Add your first expense above.</td></tr>';
     return;
   }
   tableBody.innerHTML = expenses.map(exp => `
@@ -295,9 +295,11 @@ async function suggestCategory() {
     predictedDescription = "";
     predictedSource      = "fallback";
     aiSuggestion.textContent = "AI category will appear here.";
+    aiSuggestion.className = "ai-suggestion is-idle";
     return;
   }
   aiSuggestion.textContent = "AI is thinking…";
+  aiSuggestion.className = "ai-suggestion is-loading";
   try {
     const result = await apiJson("/api/categorize-expense", {
       method:  "POST",
@@ -308,8 +310,10 @@ async function suggestCategory() {
     predictedDescription = desc;
     predictedSource      = result.source || "fallback";
     aiSuggestion.textContent = `Suggested: ${result.category}`;
+    aiSuggestion.className = "ai-suggestion is-suggested";
   } catch (err) {
     aiSuggestion.textContent = "Could not suggest category.";
+    aiSuggestion.className = "ai-suggestion is-error";
   }
 }
 
@@ -345,6 +349,7 @@ form.addEventListener("submit", async (e) => {
     form.reset();
     predictedCategory = null; predictedDescription = ""; predictedSource = "fallback";
     aiSuggestion.textContent = "AI category will appear here.";
+    aiSuggestion.className = "ai-suggestion is-idle";
     if (result && result.id) await loadExpenses({ page: 1 });
     showNotification("Expense added successfully.", "success");
   } catch (err) {

@@ -26,7 +26,11 @@ const premiumUserBadge = document.getElementById("premiumUserBadge");
 const premiumBanner = document.getElementById("premiumBanner");
 const amount = document.getElementById("amount");
 const expenseDate = document.getElementById("expenseDate");
-if (expenseDate && !expenseDate.value) expenseDate.value = new Date().toISOString().slice(0, 10);
+function getLocalDateInputValue(date = new Date()) {
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 10);
+}
+if (expenseDate && !expenseDate.value) expenseDate.value = getLocalDateInputValue();
 const description = document.getElementById("description");
 const category = document.getElementById("category");
 const leaderboardRefresh = document.getElementById("leaderboardRefresh");
@@ -467,7 +471,7 @@ if (form) {
     const body = {
       amount: numericAmount,
       description: textDescription,
-      expenseDate: expenseDate?.value || new Date().toISOString().slice(0, 10)
+      expenseDate: expenseDate?.value || getLocalDateInputValue()
     };
     if (category && category.value) body.category = category.value;
 
@@ -483,7 +487,7 @@ if (form) {
       await load(1);
       msg.textContent = x.category ? `Category: ${x.category}` : "Expense added.";
       form.reset();
-      if (expenseDate) expenseDate.value = new Date().toISOString().slice(0, 10);
+      if (expenseDate) expenseDate.value = getLocalDateInputValue();
     } catch (error) {
       msg.textContent = error.message;
     } finally {
