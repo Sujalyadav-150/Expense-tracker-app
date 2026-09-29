@@ -8,6 +8,12 @@ function startOfDay(date) {
   return result;
 }
 
+function endOfDay(date) {
+  const result = new Date(date);
+  result.setHours(23, 59, 59, 999);
+  return result;
+}
+
 function parseAnchorDate(value) {
   if (!value) return startOfDay(new Date());
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
@@ -15,34 +21,55 @@ function parseAnchorDate(value) {
   return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 }
 
+// Format a Date as DD/MM/YYYY (locale-independent)
+function formatDMY(date) {
+  const d = String(date.getDate()).padStart(2, "0");
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
+}
+
 function getPeriodRange(period, dateValue) {
   const selectedPeriod = PERIODS.has(period) ? period : "daily";
   const anchor = parseAnchorDate(dateValue);
-  const start = startOfDay(anchor);
-  const end = new Date(start);
+
+  let start, end;
 
   if (selectedPeriod === "daily") {
-    end.setDate(end.getDate() + 1);
+    // 00:00:00 to 23:59:59 of the selected date
+    start = startOfDay(anchor);
+    end   = new Date(start);
+    end.setDate(end.getDate() + 1); // exclusive upper bound for $lt
   } else if (selectedPeriod === "weekly") {
-    start.setDate(start.getDate() - start.getDay());
-    end.setTime(start.getTime());
-    end.setDate(end.getDate() + 7);
+    // Sunday 00:00:00 through Saturday 23:59:59
+    start = startOfDay(anchor);
+    start.setDate(start.getDate() - start.getDay()); // rewind to Sunday
+    end   = new Date(start);
+    end.setDate(end.getDate() + 7); // exclusive: next Sunday 00:00:00
   } else if (selectedPeriod === "monthly") {
+    // First day 00:00:00 through last day 23:59:59
+    start = startOfDay(anchor);
     start.setDate(1);
-    end.setTime(start.getTime());
-    end.setMonth(end.getMonth() + 1);
+    end = new Date(start);
+    end.setMonth(end.getMonth() + 1); // exclusive: 1st of next month
   } else {
+    // yearly: January 1 00:00:00 through December 31 23:59:59
+    start = startOfDay(anchor);
     start.setMonth(0, 1);
-    end.setTime(start.getTime());
-    end.setFullYear(end.getFullYear() + 1);
+    end = new Date(start);
+    end.setFullYear(end.getFullYear() + 1); // exclusive: Jan 1 next year
   }
+
+  // Human-readable end date for display (end - 1 ms = last moment of period)
+  const displayEnd = new Date(end.getTime() - 1);
 
   return {
     period: selectedPeriod,
     start,
-    end,
+    end,        // exclusive upper bound (used with $lt)
     label: selectedPeriod[0].toUpperCase() + selectedPeriod.slice(1),
-    fileName: `${selectedPeriod[0].toUpperCase() + selectedPeriod.slice(1)}_Report`
+    fileName: `${selectedPeriod[0].toUpperCase() + selectedPeriod.slice(1)}_Report`,
+    dateRangeDisplay: `${formatDMY(start)} - ${formatDMY(displayEnd)}`
   };
 }
 
@@ -51,7 +78,7 @@ function isIncome(expense) {
     || String(expense.category || "").toLowerCase() === "salary";
 }
 
-async function buildReport(email, name, period, dateValue) {
+async function buildReport(email, name, period, dateValue, userEmail) {
   const range = getPeriodRange(period, dateValue);
   const expenses = await db.getExpensesInRange(email, range.start, range.end);
   const transactions = expenses.map((expense) => ({
@@ -65,17 +92,18 @@ async function buildReport(email, name, period, dateValue) {
   }, { income: 0, expense: 0 });
 
   return {
-    userName: name || "User",
-    period: range.period,
+    userName:    name || "User",
+    userEmail:   userEmail || email || "",
+    period:      range.period,
     periodLabel: range.label,
-    fileName: range.fileName,
-    start: range.start,
-    end: range.end,
-    dateRange: `${range.start.toLocaleDateString("en-IN")} - ${new Date(range.end.getTime() - 1).toLocaleDateString("en-IN")}`,
+    fileName:    range.fileName,
+    start:       range.start,
+    end:         range.end,
+    dateRange:   range.dateRangeDisplay,
     transactions,
-    totalIncome: Number(totals.income.toFixed(2)),
+    totalIncome:  Number(totals.income.toFixed(2)),
     totalExpense: Number(totals.expense.toFixed(2)),
-    savings: Number((totals.income - totals.expense).toFixed(2))
+    savings:      Number((totals.income - totals.expense).toFixed(2))
   };
 }
 

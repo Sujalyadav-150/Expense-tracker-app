@@ -590,7 +590,6 @@ async function runSandboxSimulation(order) {
     await verifyAndActivate(order.order_id, true);
   } else {
     await notifyBackendFailed(order.order_id);
-    showNotification("Payment cancelled.", "error");
   }
 }
 
@@ -619,8 +618,9 @@ async function verifyAndActivate(orderId, testSuccess = false) {
   }
 
   updatePremiumUI();
-  showNotification("🎉 Payment successful! You are now a Premium member.", "success");
-  if (premiumMsg) premiumMsg.textContent = "";
+  alert("Transaction Successful");
+  showNotification("🎉 You are a Premium User Now", "success");
+  if (premiumMsg) premiumMsg.textContent = "🎉 You are a Premium User Now";
 }
 
 async function notifyBackendFailed(orderId) {
@@ -631,6 +631,7 @@ async function notifyBackendFailed(orderId) {
       body:    JSON.stringify({ orderId, status: "FAILED", testSuccess: false })
     });
   } catch { /* ignore */ }
+  alert("TRANSACTION FAILED");
 }
 
 // ---------------------------------------------------------------------------

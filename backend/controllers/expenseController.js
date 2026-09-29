@@ -139,7 +139,7 @@ exports.downloadReport = async (req, res) => {
     if (!req.user.isPremium && !req.user.ispremiumuser) {
       return res.status(403).json({
         success: false,
-        message: "Premium membership is required to download reports. Please upgrade to Premium."
+        message: "Access Denied: Only users with premium membership can download reports."
       });
     }
 
@@ -148,7 +148,8 @@ exports.downloadReport = async (req, res) => {
       req.user.email,   // always use server-side identity — never trust frontend userId
       req.user.name,
       req.query.period,
-      req.query.date
+      req.query.date,
+      req.user.email    // pass email so PDF can display it
     );
 
     // Return a clean 200 message instead of an empty/broken file when there
