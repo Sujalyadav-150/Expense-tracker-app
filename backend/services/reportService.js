@@ -73,38 +73,39 @@ function getPeriodRange(period, dateValue) {
   };
 }
 
-function isIncome(expense) {
-  return String(expense.type || "").toLowerCase() === "income"
-    || String(expense.category || "").toLowerCase() === "salary";
-}
-
 async function buildReport(email, name, period, dateValue, userEmail) {
   const range = getPeriodRange(period, dateValue);
   const expenses = await db.getExpensesInRange(email, range.start, range.end);
-  const transactions = expenses.map((expense) => ({
-    ...expense,
-    type: isIncome(expense) ? "Income" : "Expense"
-  }));
-  const totals = transactions.reduce((result, transaction) => {
-    if (transaction.type === "Income") result.income += transaction.amount;
-    else result.expense += transaction.amount;
-    return result;
-  }, { income: 0, expense: 0 });
+
+  // Reports are expense-only. Income/salary entries are intentionally excluded.
+  const transactions = expenses
+    .filter((expense) => {
+      const type = String(expense.type || "").toLowerCase();
+      const category = String(expense.category || "").toLowerCase();
+      return type !== "income" && category !== "salary";
+    })
+    .map((expense) => ({
+      ...expense,
+      type: "Expense"
+    }));
+
+  const totalExpense = transactions.reduce(
+    (sum, transaction) => sum + (Number(transaction.amount) || 0),
+    0
+  );
 
   return {
-    userName:    name || "User",
-    userEmail:   userEmail || email || "",
-    period:      range.period,
+    userName: name || "User",
+    userEmail: userEmail || email || "",
+    period: range.period,
     periodLabel: range.label,
-    fileName:    range.fileName,
-    start:       range.start,
-    end:         range.end,
-    dateRange:   range.dateRangeDisplay,
+    fileName: range.fileName,
+    start: range.start,
+    end: range.end,
+    dateRange: range.dateRangeDisplay,
     transactions,
-    totalIncome:  Number(totals.income.toFixed(2)),
-    totalExpense: Number(totals.expense.toFixed(2)),
-    savings:      Number((totals.income - totals.expense).toFixed(2))
+    totalExpense: Number(totalExpense.toFixed(2))
   };
 }
 
-module.exports = { PERIODS, getPeriodRange, buildReport, isIncome };
+module.exports = { PERIODS, getPeriodRange, buildReport };
