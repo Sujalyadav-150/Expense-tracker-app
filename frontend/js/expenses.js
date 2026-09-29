@@ -542,38 +542,25 @@ async function purchasePremium() {
 
 // ---------- Cashfree JS SDK Drop-in checkout ----------
 async function runCashfreeCheckout(order) {
-  // cashfree is injected by the Cashfree JS SDK (loaded via <script> in HTML).
-  if (typeof cashfree === "undefined") {
+  // Cashfree v3 exposes a factory rather than a mutable global checkout
+  // object. Keep the secret server-side; the browser receives only a session.
+  if (typeof Cashfree !== "function") {
     throw new Error("Cashfree SDK not loaded. Please refresh the page.");
   }
 
   const cfEnv   = order.cashfree_env === "production" ? "production" : "sandbox";
-  const cfClient = cashfree;           // global provided by SDK <script>
-
-  return new Promise((resolve, reject) => {
-    // Initialise Cashfree Drop (inline checkout).
-    try {
-      cfClient.initialiseDropin(document.body, {
-        components: ["order-details", "card", "upi", "netbanking", "app", "credicardemi"],
-        paymentSessionId: order.payment_session_id,
-        redirectTarget:   "_modal",
-        onSuccess: async (paymentData) => {
-          try {
-            await verifyAndActivate(order.order_id);
-            resolve();
-          } catch (e) { reject(e); }
-        },
-        onFailure: async (paymentData) => {
-          try {
-            await notifyBackendFailed(order.order_id);
-          } catch { /* best effort */ }
-          reject(new Error("Payment failed or was cancelled."));
-        }
-      });
-    } catch (sdkErr) {
-      reject(new Error("Could not launch payment screen: " + sdkErr.message));
-    }
+  const cfClient = Cashfree({ mode: cfEnv });
+  const result = await cfClient.checkout({
+    paymentSessionId: order.payment_session_id,
+    redirectTarget: "_modal"
   });
+
+  if (result?.error || result?.paymentDetails?.paymentStatus === "FAILED") {
+    await notifyBackendFailed(order.order_id);
+    throw new Error(result?.error?.message || "Payment failed or was cancelled.");
+  }
+
+  await verifyAndActivate(order.order_id);
 }
 
 // ---------- Sandbox simulation (no real credentials) ----------
@@ -634,6 +621,31 @@ async function notifyBackendFailed(orderId) {
   alert("TRANSACTION FAILED");
 }
 
+async function resumePaymentFromReturn() {
+  const orderId = new URLSearchParams(window.location.search).get("order_id");
+  if (!orderId || !authToken) return;
+
+  try {
+    const result = await apiJson(`/api/purchase/status/${encodeURIComponent(orderId)}`, {
+      headers: authHeaders()
+    });
+    if (result.success && result.token) {
+      saveAuth(result.token, result.user || { ...loggedInUser, isPremium: true, ispremiumuser: true });
+      updatePremiumUI();
+      showNotification("🎉 Premium payment verified successfully.", "success");
+    } else if (result.gatewayStatus === "PENDING") {
+      showNotification("Payment is still being confirmed by Cashfree.", "info");
+    }
+  } catch (err) {
+    showNotification(err.message, "error");
+  } finally {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("order_id");
+    url.searchParams.delete("order_token");
+    window.history.replaceState({}, document.title, url.pathname + url.search);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Logout
 // ---------------------------------------------------------------------------
@@ -653,5 +665,6 @@ renderPagination();
 
 refreshSession().finally(() => {
   updatePremiumUI();
+  resumePaymentFromReturn();
   loadExpenses();
 });

@@ -1,20 +1,25 @@
 const OpenAI = require("openai");
 let client;
-const categories=["Food","Travel","Shopping","Bills","Entertainment","Health","Education","Salary","Other"];
-const model=process.env.OPENROUTER_MODEL||"openai/gpt-4o-mini";
-const apiKey=process.env.OPENROUTER_API_KEY;
+const categories = ["Food", "Travel", "Shopping", "Bills", "Entertainment", "Health", "Education", "Salary", "Other"];
 
 function getClient(){
+ const apiKey = String(process.env.OPENROUTER_API_KEY || "").trim();
  if(!apiKey) return null;
- if(!client)client=new OpenAI({
-  apiKey,
+ if(!client) {
+  const defaultHeaders = {};
+  if (process.env.OPENROUTER_SITE_URL) {
+   defaultHeaders["HTTP-Referer"] = process.env.OPENROUTER_SITE_URL;
+  }
+  if (process.env.OPENROUTER_APP_NAME) {
+   defaultHeaders["X-Title"] = process.env.OPENROUTER_APP_NAME;
+  }
+  client = new OpenAI({
+   apiKey,
   baseURL:"https://openrouter.ai/api/v1",
-  defaultHeaders: {
-    "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "http://localhost:5000",
-    "X-Title": process.env.OPENROUTER_APP_NAME || "Expense Tracker"
-  },
+   defaultHeaders,
   timeout:5000
- });
+  });
+ }
  return client;
 }
 
@@ -39,22 +44,29 @@ function localCategory(description){
 }
 
 async function categorizeExpense(description){
- if(!apiKey)return { category: localCategory(description), source: "local" };
+ if(!getClient())return { category: localCategory(description), source: "local" };
  try{
-  const r=await getClient().chat.completions.create({model,temperature:0,messages:[
+  const r=await getClient().chat.completions.create({
+   model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
+   temperature:0,
+   messages:[
    {role:"system",content:`Return ONLY one category from: ${categories.join(", ")}.`},
-   {role:"user",content:description}
+   {role:"user",content:String(description).slice(0, 500)}
   ]});
-    const answer=String(r.choices?.[0]?.message?.content || "").trim().replace(/[^a-z]/gi,"").toLowerCase();
+     const answer=String(r.choices?.[0]?.message?.content || "").trim().toLowerCase();
     const category=categories.find(item=>item.toLowerCase()===answer);
     return { category: category || localCategory(description), source: category ? "ai" : "local" };
  }catch(e){return { category: localCategory(description), source: "local" };}
 }
 async function spendingInsight(expenses){
- if(!apiKey)return { text: localInsight(expenses), source: "local" };
- const data=expenses.map(e=>({amount:e.amount,description:e.description,category:e.category}));
+  if(!getClient())return { text: localInsight(expenses), source: "local" };
+  const data=expenses.slice(0, 200).map(e=>({amount:e.amount,description:e.description,category:e.category}));
  try{
-  const r=await getClient().chat.completions.create({model,temperature:0.2,max_tokens:80,messages:[
+   const r=await getClient().chat.completions.create({
+    model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
+    temperature:0.2,
+    max_tokens:80,
+    messages:[
    {role:"system",content:"Give one practical spending insight in under 30 words."},
    {role:"user",content:JSON.stringify(data)}
   ]});
@@ -67,6 +79,8 @@ function localInsight(expenses){
  expenses.forEach(expense=>{totals[expense.category]=(totals[expense.category]||0)+Number(expense.amount);});
  const topCategory=Object.keys(totals).sort((a,b)=>totals[b]-totals[a])[0];
  const total=expenses.reduce((sum,expense)=>sum+Number(expense.amount),0);
- return `Your highest spending category is ${topCategory}, totaling ₹${totals[topCategory].toFixed(2)}. Total spending is ₹${total.toFixed(2)}.`;
+  return topCategory
+    ? `Your highest spending category is ${topCategory}, totaling ₹${totals[topCategory].toFixed(2)}. Total spending is ₹${total.toFixed(2)}.`
+    : "Add a few expenses to receive a spending insight.";
 }
 module.exports={categorizeExpense,spendingInsight};

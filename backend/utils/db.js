@@ -99,10 +99,24 @@ async function createPremiumOrder({ userId, email, orderId, amount = 199, paymen
 async function updatePremiumOrder(orderId, email, status) {
   await ensureDatabase();
   return Order.findOneAndUpdate(
-    { orderId, email: normalizeEmail(email) },
+    {
+      orderId,
+      email: normalizeEmail(email),
+      // A verified successful payment is terminal. A later client retry or
+      // failure callback must never downgrade a paid order.
+      ...(status === "FAILED" ? { status: { $ne: "SUCCESSFUL" } } : {})
+    },
     { status },
     { new: true }
   ).lean();
+}
+
+async function getPremiumOrder(orderId, email) {
+  await ensureDatabase();
+  return Order.findOne({
+    orderId: String(orderId || "").trim(),
+    email: normalizeEmail(email)
+  }).lean();
 }
 
 async function markUserPremium(email) {
@@ -205,11 +219,12 @@ function makeExpenseId() {
   return Date.now() * 1000 + Math.floor(Math.random() * 1000);
 }
 
-async function addExpense({ email, amount, description, category, categorySource, aiSuggested = false }) {
+async function addExpense({ email, userId = null, amount, description, category, categorySource, aiSuggested = false }) {
   await ensureDatabase();
   const expense = await Expense.create({
     id: makeExpenseId(),
     email: normalizeEmail(email),
+    userId: userId ? String(userId) : null,
     amount: Number(amount),
     description: String(description).trim(),
     category: String(category),
@@ -270,25 +285,17 @@ async function getLeaderboard(currentEmail) {
           $and: [
             {
               $not: {
-                $in: [
-                  {
-                    $trim: {
-                      input: {
-                        $toLower: {
-                          $ifNull: ["$name", ""]
-                        }
-                      }
-                    }
-                  },
-                  ["nitin", "ansh", "anki", "dummy", "test"]
-                ]
+                $regexMatch: {
+                  input: { $toLower: { $ifNull: ["$name", ""] } },
+                  regex: "(^|[^a-z])(nitin|ansh|anki|dummy|test)([^a-z]|$)"
+                }
               }
             },
             {
               $not: {
                 $regexMatch: {
                   input: { $toLower: { $ifNull: ["$email", ""] } },
-                  regex: "@(example\\.com|test\\.com|dummy\\.com)$"
+                  regex: "(dummy|test|example)\\.(com|net|org)$"
                 }
               }
             },
@@ -375,6 +382,7 @@ module.exports = {
   updateUserPassword,
   createPremiumOrder,
   updatePremiumOrder,
+  getPremiumOrder,
   markUserPremium,
   getExpenses,
   getExpensesPage,

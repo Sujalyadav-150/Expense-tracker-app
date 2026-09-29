@@ -17,17 +17,23 @@ const app = express();
 // ---------------------------------------------------------------------------
 // CORS
 // ---------------------------------------------------------------------------
+const isProduction = String(process.env.NODE_ENV || "").toLowerCase() === "production";
 const ALLOWED_ORIGINS = [
-  "https://expense-tracker-app-mu-neon.vercel.app",
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "http://localhost:5000",
-  "http://localhost:5173",
-  "http://127.0.0.1:3000",
-  "http://127.0.0.1:3001",
-  "http://127.0.0.1:5000",
-  "http://127.0.0.1:5173"
-];
+  process.env.PUBLIC_APP_URL || "https://expense-tracker-app-mu-neon.vercel.app"
+].filter(Boolean);
+
+if (!isProduction) {
+  ALLOWED_ORIGINS.push(
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:5000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:5000",
+    "http://127.0.0.1:5173"
+  );
+}
 
 if (process.env.CORS_ORIGINS) {
   process.env.CORS_ORIGINS.split(",").forEach(o => {
@@ -40,9 +46,9 @@ app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-    if (/\.vercel\.app$/.test(origin)) return callback(null, true);
-    // Allow all origins in development.
-    callback(null, true);
+    if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) return callback(null, true);
+    if (!isProduction) return callback(null, true);
+    return callback(new Error("Origin is not allowed by CORS."));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -89,18 +95,19 @@ app.use("/api/auth",     authRoutes);
 app.use("/api/expenses", expenseRoutes);
 
 // Purchase routes — auth middleware applied at mount level.
-app.use("/api/purchase", authMiddleware, purchaseRoutes);
-// Legacy mount without /api prefix (kept for backward compat with existing frontend).
-app.use("/purchase",     authMiddleware, purchaseRoutes);
-
 // Leaderboard — also available directly at /api/leaderboard for the original SPA.
 app.get("/api/leaderboard", authMiddleware, expenseController.getLeaderboard);
 
-// AI routes (categorize = no auth, insight = auth enforced inside route).
+// AI routes are authenticated; insights and categorization both run behind
+// the same JWT boundary as expense CRUD.
 app.use("/api/ai", aiRoutes);
 
 // Legacy categorization URL — kept for older frontend bundles.
-app.post("/api/categorize-expense", require("./controllers/aiController").categorize);
+app.post(
+  "/api/categorize-expense",
+  authMiddleware,
+  require("./controllers/aiController").categorize
+);
 
 // ---------------------------------------------------------------------------
 // Cashfree webhook (raw body, no auth middleware — Cashfree signs the payload)
@@ -175,6 +182,12 @@ app.post("/api/purchase/webhook", async (req, res) => {
     return res.status(200).json({ received: true });
   }
 });
+
+// Purchase routes are mounted after the unauthenticated webhook. This order
+// matters: Cashfree cannot send our user's JWT when it calls the webhook.
+app.use("/api/purchase", authMiddleware, purchaseRoutes);
+// Legacy mount without /api prefix (kept for backward compatibility).
+app.use("/purchase", authMiddleware, purchaseRoutes);
 
 // ---------------------------------------------------------------------------
 // SPA fallback — serve login page for all other GET requests

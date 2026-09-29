@@ -62,6 +62,19 @@ User and Expense models
 
 Persistent expense and user data
 
+💳 Premium Membership
+
+Cashfree ₹199 Premium membership
+MongoDB-backed premium orders with pending, successful, and failed states
+Server-side payment verification and Cashfree webhook handling
+Premium-only CSV and PDF report downloads
+
+📊 Reports
+
+Daily, weekly, monthly, and yearly date ranges
+Server-generated CSV and PDF exports
+Reports are always scoped to the authenticated user
+
 🚀 Deployment
 
 Vercel-compatible frontend build
@@ -119,6 +132,7 @@ AI-Expense-Tracker/
 │   │   └── auth.js
 │   ├── models/
 │   │   ├── Expense.js
+│   │   ├── Order.js
 │   │   └── User.js
 │   ├── routes/
 │   │   ├── aiRoutes.js
@@ -253,7 +267,23 @@ POST /api/expenses
 
 DELETE /api/expenses/:id
 
-Premium Leaderboard
+Reports
+
+GET /api/expenses/report?period=daily|weekly|monthly|yearly&date=YYYY-MM-DD&format=json|csv|pdf
+
+Premium
+
+POST /api/purchase/premium
+
+POST /api/purchase/update-status
+
+GET /api/purchase/status/:orderId
+
+Premium report downloads and payment routes require JWT authentication. The
+backend verifies the authenticated user's email against the order and expense
+queries never use a frontend-supplied email.
+
+Leaderboard
 
 AI
 
@@ -276,6 +306,11 @@ Production environment variables should be configured in Vercel:
 MONGODB_URI=your_mongodb_atlas_connection_string
 JWT_SECRET=your_secure_secret
 OPENROUTER_API_KEY=your_openrouter_api_key
+CASHFREE_ENV=sandbox
+CASHFREE_APP_ID=your_cashfree_app_id
+CASHFREE_SECRET_KEY=your_cashfree_secret_key
+CASHFREE_RETURN_URL=https://expense-tracker-app-mu-neon.vercel.app/expenses.html
+PUBLIC_APP_URL=https://expense-tracker-app-mu-neon.vercel.app
 
 Do not expose private backend secrets in frontend environment variables.
 
@@ -312,13 +347,11 @@ The backend reuses cached MongoDB connections for serverless invocations and ret
 Possible improvements include:
 
 Edit expense functionality
-Monthly/yearly expense reports
 Expense charts and visual analytics
 Budget limits and notifications
 Password reset through email
 Refresh-token based authentication
 More advanced AI financial recommendations
-Export expenses to CSV/PDF
 Improved role and permission management
 
 👨‍💻 Author

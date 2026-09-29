@@ -14,7 +14,10 @@ const orderSchema = new mongoose.Schema({
   },
   amount: {
     type: Number,
-    default: 199
+    required: true,
+    default: 199,
+    min: 199,
+    max: 199
   },
   status: {
     type: String,
@@ -32,5 +35,7 @@ const orderSchema = new mongoose.Schema({
     trim: true
   }
 }, { timestamps: true });
+
+orderSchema.index({ email: 1, createdAt: -1 });
 
 module.exports = mongoose.models.Order || mongoose.model("Order", orderSchema);

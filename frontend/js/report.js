@@ -240,7 +240,9 @@ async function loadExpenses() {
     isPremium = session.user?.isPremium === true || session.user?.ispremiumuser === true;
     expenses  = Array.isArray(firstPage.expenses) ? [...firstPage.expenses] : [];
 
-    // Fetch remaining pages sequentially.
+    // Fetch remaining pages sequentially. The report download endpoint still
+    // re-queries the authenticated user's date range on the server, so this
+    // browser copy is only for the on-screen preview.
     const totalPages = Number(firstPage.pagination?.totalPages) || 1;
     for (let page = 2; page <= totalPages; page++) {
       const result = await apiJson(`/api/expenses?page=${page}&limit=40`);

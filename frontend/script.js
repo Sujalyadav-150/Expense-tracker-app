@@ -137,16 +137,16 @@ async function buyPremiumMembership() {
       );
     } else {
       // Real Cashfree Drop-in checkout
-      if (typeof cashfree === "undefined") throw new Error("Cashfree SDK not loaded. Please refresh.");
-      paid = await new Promise((resolve) => {
-        cashfree.initialiseDropin(document.body, {
-          components: ["order-details", "card", "upi", "netbanking", "app"],
-          paymentSessionId: order.payment_session_id,
-          redirectTarget: "_modal",
-          onSuccess: () => resolve(true),
-          onFailure: () => resolve(false)
-        });
+      if (typeof Cashfree !== "function") throw new Error("Cashfree SDK not loaded. Please refresh.");
+      const cashfreeClient = Cashfree({
+        mode: order.cashfree_env === "production" ? "production" : "sandbox"
       });
+      const checkoutResult = await cashfreeClient.checkout({
+        paymentSessionId: order.payment_session_id,
+        redirectTarget: "_modal"
+      });
+      paid = !checkoutResult?.error
+        && checkoutResult?.paymentDetails?.paymentStatus !== "FAILED";
     }
 
     // Step 2: Notify backend of result

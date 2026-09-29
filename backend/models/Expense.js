@@ -11,6 +11,13 @@ const expenseSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
+  // Optional for backwards compatibility with existing email-owned records.
+  // New records also retain the authenticated user's immutable database id.
+  userId: {
+    type: String,
+    default: null,
+    index: true
+  },
   amount: {
     type: Number,
     required: true
