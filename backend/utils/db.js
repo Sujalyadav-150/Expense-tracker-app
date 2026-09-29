@@ -141,10 +141,13 @@ async function getExpensesInRange(email, start, end) {
   await ensureDatabase();
   const expenses = await Expense.find({
     email: normalizeEmail(email),
-    createdAt: { $gte: start, $lt: end }
+    $or: [
+      { expenseDate: { $gte: start, $lt: end } },
+      { expenseDate: { $exists: false }, createdAt: { $gte: start, $lt: end } }
+    ]
   })
-    .select({ _id: 0, id: 1, amount: 1, description: 1, category: 1, categorySource: 1, aiSuggested: 1, createdAt: 1 })
-    .sort({ createdAt: 1, id: 1 })
+    .select({ _id: 0, id: 1, amount: 1, description: 1, category: 1, categorySource: 1, aiSuggested: 1, createdAt: 1, expenseDate: 1 })
+    .sort({ expenseDate: 1, createdAt: 1, id: 1 })
     .lean();
   return expenses.map((expense) => ({
     id: expense.id,
@@ -153,14 +156,15 @@ async function getExpensesInRange(email, start, end) {
     category: expense.category,
     categorySource: expense.categorySource || "fallback",
     aiSuggested: Boolean(expense.aiSuggested),
-    createdAt: expense.createdAt
+    createdAt: expense.createdAt,
+    expenseDate: expense.expenseDate || expense.createdAt
   }));
 }
 
 async function getExpenses(email) {
   await ensureDatabase();
   const expenses = await Expense.find({ email: normalizeEmail(email) })
-    .select({ _id: 0, id: 1, amount: 1, description: 1, category: 1, categorySource: 1, aiSuggested: 1, createdAt: 1 })
+    .select({ _id: 0, id: 1, amount: 1, description: 1, category: 1, categorySource: 1, aiSuggested: 1, createdAt: 1, expenseDate: 1 })
     .sort({ createdAt: -1 })
     .lean();
   return expenses.map((expense) => ({
@@ -170,7 +174,8 @@ async function getExpenses(email) {
     category: expense.category,
     categorySource: expense.categorySource || "fallback",
     aiSuggested: Boolean(expense.aiSuggested),
-    createdAt: expense.createdAt
+    createdAt: expense.createdAt,
+    expenseDate: expense.expenseDate || expense.createdAt
   }));
 }
 
@@ -187,7 +192,7 @@ async function getExpensesPage(email, { page = 1, limit = 10 } = {}) {
   const totalPages = Math.ceil(totalExpenses / limit);
   const currentPage = Math.min(page, Math.max(totalPages, 1));
   const expenses = await Expense.find(filter)
-    .select({ _id: 0, id: 1, amount: 1, description: 1, category: 1, categorySource: 1, aiSuggested: 1, createdAt: 1 })
+    .select({ _id: 0, id: 1, amount: 1, description: 1, category: 1, categorySource: 1, aiSuggested: 1, createdAt: 1, expenseDate: 1 })
     .sort({ createdAt: -1, _id: -1 })
     .skip((currentPage - 1) * limit)
     .limit(limit)
@@ -219,13 +224,14 @@ function makeExpenseId() {
   return Date.now() * 1000 + Math.floor(Math.random() * 1000);
 }
 
-async function addExpense({ email, userId = null, amount, description, category, categorySource, aiSuggested = false }) {
+async function addExpense({ email, userId = null, amount, description, category, categorySource, aiSuggested = false, expenseDate = new Date() }) {
   await ensureDatabase();
   const expense = await Expense.create({
     id: makeExpenseId(),
     email: normalizeEmail(email),
     userId: userId ? String(userId) : null,
     amount: Number(amount),
+    expenseDate: new Date(expenseDate),
     description: String(description).trim(),
     category: String(category),
     categorySource: categorySource || "fallback",
