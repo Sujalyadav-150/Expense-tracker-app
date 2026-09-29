@@ -438,9 +438,6 @@ body{
   min-width:0;
   color-scheme:dark;
 }
-#form::before{
-  content:"";
-}
 @media(max-width:950px){
   #form{grid-template-columns:1fr 1fr 1.7fr;}
   #form button{grid-column:span 1;}
