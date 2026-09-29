@@ -19,16 +19,13 @@ function createCsvReport(report) {
     ["User Name",       report.userName],
     ["Selected Period", report.periodLabel],
     ["Date Range",      report.dateRange],
-    ["Total Income",    report.totalIncome.toFixed(2)],
     ["Total Expense",   report.totalExpense.toFixed(2)],
-    ["Savings",         report.savings.toFixed(2)],
     [],
-    ["Date", "Description", "Category", "Type", "Amount (INR)"],
+    ["Date", "Description", "Category", "Amount (INR)"],
     ...report.transactions.map((transaction) => [
       formatDateDMY(transaction.createdAt),
       transaction.description,
       transaction.category || "Other",
-      transaction.type,
       transaction.amount.toFixed(2)
     ])
   ];
