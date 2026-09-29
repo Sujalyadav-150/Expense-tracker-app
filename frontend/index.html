@@ -37,7 +37,7 @@
         <div id="premiumBanner" class="premium-banner" hidden>🎉 You are a Premium User Now</div>
         <section class="card">
             <h2>Add Expense</h2>
-            <form id="form"><input id="expenseDate" type="date" aria-label="Expense date" required><input id="amount" type="number" min="1" step=".01" placeholder="Amount" required><input
+            <form id="form"><label class="expense-date-field" for="expenseDate">Expense date<input id="expenseDate" type="date" aria-label="Expense date" required></label><input id="amount" type="number" min="1" step=".01" placeholder="Amount" required><input
                     id="description" placeholder="e.g. Lunch at Domino's" required><select id="category">
                     <option value="">🤖 Let AI choose</option>
                     <option>Food</option>
