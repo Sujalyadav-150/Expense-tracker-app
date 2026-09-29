@@ -108,25 +108,48 @@ function updatePremiumState() {
   if (authScreen) authScreen.hidden = isLogged;
   if (trackerApp) trackerApp.hidden = !isLogged;
   const isPremium = Boolean(currentUser?.isPremium || currentUser?.ispremiumuser);
+  // Buy button: visible only when logged in AND not yet premium
   if (buyPremiumBtn) buyPremiumBtn.hidden = !isLogged || isPremium;
+  // Premium badge: visible only when logged in AND premium
   if (premiumUserBadge) premiumUserBadge.hidden = !isLogged || !isPremium;
+  // Premium banner "🎉 You are a Premium User Now": visible when logged in AND premium
   if (premiumBanner) premiumBanner.hidden = !isLogged || !isPremium;
 }
 
 async function buyPremiumMembership() {
-  if (!buyPremiumBtn || !authToken || currentUser?.isPremium) return;
+  if (!buyPremiumBtn || !authToken || currentUser?.isPremium || currentUser?.ispremiumuser) return;
   buyPremiumBtn.disabled = true;
   buyPremiumBtn.textContent = "Creating order...";
 
   try {
+    // Step 1: Create PENDING order on backend
     const order = await request("/api/purchase/premium", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders() }
     });
 
-    const paid = window.confirm(
-      `Cashfree Sandbox Payment\n\nOrder: ${order.order_id}\nAmount: ₹${Number(order.amount || 199).toFixed(2)}\n\nPress OK to simulate Pay or Cancel to cancel.`
-    );
+    let paid = false;
+
+    if (order.mode === "sandbox_simulation") {
+      // Sandbox: use confirm() to simulate pay / cancel
+      paid = window.confirm(
+        `Cashfree Sandbox Payment\n\nOrder: ${order.order_id}\nAmount: ₹${Number(order.amount || 199).toFixed(2)}\n\nPress OK to simulate a successful payment.\nPress Cancel to simulate a failed payment.`
+      );
+    } else {
+      // Real Cashfree Drop-in checkout
+      if (typeof cashfree === "undefined") throw new Error("Cashfree SDK not loaded. Please refresh.");
+      paid = await new Promise((resolve) => {
+        cashfree.initialiseDropin(document.body, {
+          components: ["order-details", "card", "upi", "netbanking", "app"],
+          paymentSessionId: order.payment_session_id,
+          redirectTarget: "_modal",
+          onSuccess: () => resolve(true),
+          onFailure: () => resolve(false)
+        });
+      });
+    }
+
+    // Step 2: Notify backend of result
     const result = await request("/api/purchase/update-status", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -138,18 +161,27 @@ async function buyPremiumMembership() {
     });
 
     if (!paid || !result.success) {
+      // Payment failed or cancelled
       window.alert("TRANSACTION FAILED");
       return;
     }
 
-    authToken = result.token;
+    // Step 3: Payment successful — update local auth state with fresh JWT
+    if (result.token) {
+      authToken = result.token;
+      localStorage.setItem("authToken", authToken);
+      localStorage.setItem("expenseTrackerToken", authToken);
+    }
     currentUser = result.user || { ...currentUser, isPremium: true, ispremiumuser: true };
-    localStorage.setItem("authToken", authToken);
-    localStorage.setItem("expenseTrackerToken", authToken);
     localStorage.setItem("loggedInUser", JSON.stringify(currentUser));
     localStorage.setItem("expenseTrackerUser", JSON.stringify(currentUser));
+
+    // Update UI: hide Buy button, show badge + banner
     updatePremiumState();
+
+    // Show success alerts as specified
     window.alert("Transaction Successful");
+
   } catch (error) {
     window.alert(error.message || "TRANSACTION FAILED");
   } finally {
@@ -167,12 +199,10 @@ function formatCurrency(value) {
 }
 
 function renderLeaderboard(rows) {
-  const visibleRows = (Array.isArray(rows) ? rows : []).filter((row) => {
-    const name = String(row?.name || "").trim().toLowerCase();
-    const id = String(row?.id || "").trim().toLowerCase();
-    return (name.startsWith("sy") || name.startsWith("sujal") || id.startsWith("sy") || id.startsWith("sujal"))
-      && !name.startsWith("prem");
-  }).map((row, index) => ({ ...row, rank: index + 1 }));
+  // Server already filters out test/dummy accounts (nitin, ansh, anki, @example.com, etc.)
+  // and only allows prem9771190912@gmail.com for Prem-prefixed names.
+  // Do NOT apply any extra client-side name filter here.
+  const visibleRows = (Array.isArray(rows) ? rows : []);
 
   if (!visibleRows.length) {
     leaderboardTableWrap.hidden = true;
@@ -480,12 +510,16 @@ window.del = del;
 if (insightBtn) {
   insightBtn.onclick = async () => {
     insight.innerHTML = '<div class="insight">AI is analyzing...</div>';
+    insightBtn.disabled = true;
     try {
-      const queryEmail = currentUser?.email ? `?email=${encodeURIComponent(currentUser.email)}` : "";
-      const x = await request("/api/ai/insight" + queryEmail, { headers: authHeaders() });
-      insight.innerHTML = `<div class="insight">✨ ${esc(x.insight || x.message)}</div>`;
+      // Never send email as query param — backend uses req.user from JWT
+      const x = await request("/api/ai/insight", { headers: authHeaders() });
+      insight.innerHTML = `<div class="insight">✨ ${esc(x.insight || x.message || "No insight available.")}</div>
+        ${x.tip ? `<div class="insight" style="margin-top:8px;font-size:.9em;">💡 ${esc(x.tip)}</div>` : ""}`;
     } catch (error) {
       insight.innerHTML = `<div class="empty-state">${esc(error.message)}</div>`;
+    } finally {
+      insightBtn.disabled = false;
     }
   };
 }
