@@ -25,6 +25,7 @@ const buyPremiumBtn = document.getElementById("buyPremiumBtn");
 const premiumUserBadge = document.getElementById("premiumUserBadge");
 const premiumBanner = document.getElementById("premiumBanner");
 const amount = document.getElementById("amount");
+const expenseDate = document.getElementById("expenseDate");
 const description = document.getElementById("description");
 const category = document.getElementById("category");
 const leaderboardRefresh = document.getElementById("leaderboardRefresh");
@@ -274,7 +275,7 @@ function renderExpenseItem(x) {
   d.className = "expense";
   d.dataset.expenseId = String(x.id);
   d.dataset.amount = String(Number(x.amount) || 0);
-  d.innerHTML = `<div><b>${esc(x.description)}</b><div class="meta"><span class="cat">${esc(x.category)}</span>${x.aiSuggested ? '<span class="ai"> • AI suggested</span>' : ""} • ${new Date(x.createdAt || Date.now()).toLocaleDateString()}</div></div><div><b>₹${(+x.amount).toFixed(2)}</b> <button class="del" onclick="del('${x.id}')">Delete</button></div>`;
+  d.innerHTML = `<div><b>${esc(x.description)}</b><div class="meta"><span class="cat">${esc(x.category)}</span>${x.aiSuggested ? '<span class="ai"> • AI suggested</span>' : ""} • ${new Date(x.expenseDate || x.createdAt || Date.now()).toLocaleDateString()}</div></div><div><b>₹${(+x.amount).toFixed(2)}</b> <button class="del" onclick="del('${x.id}')">Delete</button></div>`;
   return d;
 }
 
@@ -464,7 +465,8 @@ if (form) {
 
     const body = {
       amount: numericAmount,
-      description: textDescription
+      description: textDescription,
+      expenseDate: expenseDate?.value || new Date().toISOString().slice(0, 10)
     };
     if (category && category.value) body.category = category.value;
 
@@ -480,6 +482,7 @@ if (form) {
       await load(1);
       msg.textContent = x.category ? `Category: ${x.category}` : "Expense added.";
       form.reset();
+      if (expenseDate) expenseDate.value = new Date().toISOString().slice(0, 10);
     } catch (error) {
       msg.textContent = error.message;
     } finally {
