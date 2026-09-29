@@ -31,27 +31,18 @@ function createPdfReport(report) {
     document.moveDown(0.75);
 
     // -----------------------------------------------------------------------
-    // KPI cards (Total Income / Total Expense / Net Savings)
+    // KPI card — expense-only report
     // -----------------------------------------------------------------------
-    const cardY     = document.y;
-    const cardWidth = (document.page.width - 80 - 20) / 3;
-    const cards = [
-      ["Total Income",   report.totalIncome,   "#157347"],
-      ["Total Expense",  report.totalExpense,   "#b02a37"],
-      ["Net Savings",    report.savings,         "#0d6efd"]
-    ];
-
-    cards.forEach(([label, value, color], index) => {
-      const x = 40 + index * (cardWidth + 10);
-      document.roundedRect(x, cardY, cardWidth, 52, 6).fill("#f4f6f8");
-      document.fillColor(color).fontSize(9).text(label, x + 10, cardY + 10, { width: cardWidth - 20 });
-      document.fillColor(color).fontSize(14).text(
-        `\u20B9${Number(value).toFixed(2)}`,
-        x + 10,
-        cardY + 26,
-        { width: cardWidth - 20 }
-      );
-    });
+    const cardY = document.y;
+    const cardWidth = document.page.width - 80;
+    document.roundedRect(40, cardY, cardWidth, 52, 6).fill("#fff3f1");
+    document.fillColor("#b02a37").fontSize(9).text("TOTAL EXPENSE", 50, cardY + 10, { width: cardWidth - 20 });
+    document.fillColor("#b02a37").fontSize(16).text(
+      `\u20B9${Number(report.totalExpense).toFixed(2)}`,
+      50,
+      cardY + 26,
+      { width: cardWidth - 20 }
+    );
 
     document.y = cardY + 68;
     document.moveDown(0.5);
@@ -62,9 +53,8 @@ function createPdfReport(report) {
     const columns = [
       ["Date",        72],
       ["Description", 190],
-      ["Category",    90],
-      ["Type",        70],
-      ["Amount",      80]
+      ["Category",    130],
+      ["Amount",      110]
     ];
 
     const TABLE_X     = 40;
@@ -107,7 +97,6 @@ function createPdfReport(report) {
         formatDateDMY(transaction.createdAt),
         transaction.description,
         transaction.category || "Other",
-        transaction.type,
         `\u20B9${Number(transaction.amount).toFixed(2)}`
       ]);
     });
