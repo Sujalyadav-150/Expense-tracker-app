@@ -21,7 +21,6 @@ const notificationBanner = document.getElementById("notificationBanner");
 const periodButtons      = [...document.querySelectorAll("[data-period]")];
 const totalExpenseEl     = document.getElementById("totalExpense");
 const txCountEl          = document.getElementById("transactionCount");
-const averageExpenseEl   = document.getElementById("averageExpense");
 const categoryCountEl    = document.getElementById("categoryCount");
 
 // ---------------------------------------------------------------------------
@@ -169,11 +168,9 @@ function renderReport() {
 
   // Expense-only summary.
   const totalExpense = rows.reduce((sum, { exp }) => sum + (Number(exp.amount) || 0), 0);
-  const averageExpense = rows.length ? totalExpense / rows.length : 0;
   const categories = new Set(rows.map(({ exp }) => String(exp.category || "Other").trim()).filter(Boolean));
 
   totalExpenseEl.textContent = formatCurrency(totalExpense);
-  averageExpenseEl.textContent = formatCurrency(averageExpense);
   txCountEl.textContent = String(rows.length);
   categoryCountEl.textContent = String(categories.size);
 
