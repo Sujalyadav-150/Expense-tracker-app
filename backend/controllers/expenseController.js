@@ -47,12 +47,16 @@ exports.getExpenses = async (req, res) => {
 };
 exports.createExpense = async (req, res) => {
   try {
-    const { amount, description, category, categorySource } = req.body;
+    const { amount, description, category, categorySource, expenseDate } = req.body;
     const email = req.user.email;
     const numericAmount = Number(amount);
 
     const trimmedDescription = String(description || "").trim();
     const requestedCategory = category ? String(category).trim() : "Other";
+    const parsedExpenseDate = expenseDate ? new Date(String(expenseDate) + "T12:00:00") : new Date();
+    if (Number.isNaN(parsedExpenseDate.getTime())) {
+      return res.status(400).json({ success: false, message: "Please select a valid expense date." });
+    }
 
     if (
       !email ||
@@ -84,7 +88,8 @@ exports.createExpense = async (req, res) => {
       category: String(finalCategory),
       categorySource: finalSource,
       aiSuggested,
-      userId: req.user?.id || null
+      userId: req.user?.id || null,
+      expenseDate: parsedExpenseDate
     });
 
     return res.status(201).json(created);
