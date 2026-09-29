@@ -26,6 +26,7 @@ const premiumUserBadge = document.getElementById("premiumUserBadge");
 const premiumBanner = document.getElementById("premiumBanner");
 const amount = document.getElementById("amount");
 const expenseDate = document.getElementById("expenseDate");
+if (expenseDate && !expenseDate.value) expenseDate.value = new Date().toISOString().slice(0, 10);
 const description = document.getElementById("description");
 const category = document.getElementById("category");
 const leaderboardRefresh = document.getElementById("leaderboardRefresh");
