@@ -322,6 +322,7 @@ async function getLeaderboard(currentEmail) {
         id: { $toString: "$_id" },
         name: { $ifNull: ["$name", "User"] },
         email: 1,
+        isPremium: { $cond: [{ $or: [{ $eq: ["$isPremium", true] }, { $eq: ["$ispremiumuser", true] }] }, true, false] },
         totalExpense: {
           $ifNull: [{ $arrayElemAt: ["$expenseSummary.totalExpense", 0] }, 0]
         },
@@ -337,7 +338,8 @@ async function getLeaderboard(currentEmail) {
     name: row.name,
     isCurrentUser: normalizeEmail(row.email) === normalizeEmail(currentEmail),
     totalExpense: Number(row.totalExpense || 0),
-    expenseCount: Number(row.expenseCount || 0)
+    expenseCount: Number(row.expenseCount || 0),
+    isPremium: Boolean(row.isPremium)
   })));
 }
 
