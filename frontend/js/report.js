@@ -1,282 +1,349 @@
-const reportRows = document.getElementById("reportRows");
-const reportStatus = document.getElementById("reportStatus");
-const reportPeriodLabel = document.getElementById("reportPeriodLabel");
-const downloadButton = document.getElementById("downloadReport");
-const pdfButton = document.getElementById("downloadPdf");
-const premiumNotice = document.getElementById("premiumNotice");
-const reportDateInput = document.getElementById("reportDate");
-const periodButtons = [...document.querySelectorAll("[data-period]")];
+/* =============================================================================
+   report.js — Expense Report page
+   Handles: period tabs, date picker, client-side filtering, KPI display,
+            CSV/PDF download (premium-gated, server-side generation).
+   Security: never sends userId from frontend — all server routes use req.user
+             from the JWT, so only the logged-in user's expenses are accessible.
+   ============================================================================= */
+
+// ---------------------------------------------------------------------------
+// DOM refs
+// ---------------------------------------------------------------------------
+const reportRows         = document.getElementById("reportRows");
+const reportStatus       = document.getElementById("reportStatus");
+const reportPeriodLabel  = document.getElementById("reportPeriodLabel");
+const downloadCsvBtn     = document.getElementById("downloadCsvBtn");
+const downloadPdfBtn     = document.getElementById("downloadPdfBtn");
+const premiumNotice      = document.getElementById("premiumNotice");
+const premiumBadge       = document.getElementById("premiumBadge");
+const reportDateInput    = document.getElementById("reportDate");
+const notificationBanner = document.getElementById("notificationBanner");
+const periodButtons      = [...document.querySelectorAll("[data-period]")];
+const totalIncomeEl      = document.getElementById("totalIncome");
+const totalExpenseEl     = document.getElementById("totalExpense");
+const totalSavingsEl     = document.getElementById("totalSavings");
+const txCountEl          = document.getElementById("transactionCount");
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
 const authToken = localStorage.getItem("authToken") || localStorage.getItem("expenseTrackerToken");
 
-let expenses = [];
-let isPremium = null;
-let isLoading = true;
-let reportLoaded = false;
-let selectedPeriod = "daily";
-let visibleRows = [];
-let visibleTotals = { income: 0, expense: 0 };
+if (!authToken) {
+  window.location.href = "login.html";
+}
 
 function authHeaders() {
-    return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+  return authToken ? { "Authorization": `Bearer ${authToken}` } : {};
 }
 
-async function apiJson(url) {
-    const response = await fetch(url, { headers: authHeaders() });
-    const result = await response.json().catch(() => ({}));
-    if (response.status === 401) {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("expenseTrackerToken");
-        localStorage.removeItem("loggedInUser");
-        localStorage.removeItem("expenseTrackerUser");
-        window.location.href = "/";
-        throw new Error("Your session expired. Please login again.");
-    }
-    if (!response.ok) throw new Error(result.message || "Unable to load report data.");
-    return result;
+function clearStoredAuth() {
+  ["authToken","expenseTrackerToken","loggedInUser","expenseTrackerUser"].forEach(k => localStorage.removeItem(k));
 }
 
-function formatCurrency(value) {
-    return `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+// ---------------------------------------------------------------------------
+// Notification helpers
+// ---------------------------------------------------------------------------
+let _notifTimer = null;
+function showNotification(message, type = "info") {
+  notificationBanner.textContent = message;
+  notificationBanner.className   = `notification-banner notification-${type}`;
+  notificationBanner.hidden      = false;
+  clearTimeout(_notifTimer);
+  _notifTimer = setTimeout(() => { notificationBanner.hidden = true; }, 5000);
+}
+
+// ---------------------------------------------------------------------------
+// API helper
+// ---------------------------------------------------------------------------
+async function apiJson(url, options = {}) {
+  const response = await fetch(url, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
+  let result = {};
+  try { result = await response.json(); } catch { /* non-JSON */ }
+  if (response.status === 401) {
+    clearStoredAuth();
+    window.location.href = "login.html";
+    throw new Error("Session expired. Please log in again.");
+  }
+  if (!response.ok) throw new Error(result.message || `Request failed (${response.status}).`);
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let expenses       = [];
+let isPremium      = null;
+let isLoading      = true;
+let reportLoaded   = false;
+let selectedPeriod = "daily";
+
+// ---------------------------------------------------------------------------
+// Date helpers
+// ---------------------------------------------------------------------------
+function toDateInputValue(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getSelectedDate() {
+  const v = reportDateInput.value;
+  if (!v) return new Date();
+  const [y, m, d] = v.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return isNaN(dt.getTime()) ? new Date() : dt;
+}
+
+function getPeriodRange(period, anchor = new Date()) {
+  const start = new Date(anchor);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  if (period === "daily") {
+    end.setDate(end.getDate() + 1);
+  } else if (period === "weekly") {
+    start.setDate(start.getDate() - start.getDay());   // Sunday start
+    end.setTime(start.getTime());
+    end.setDate(end.getDate() + 7);
+  } else if (period === "monthly") {
+    start.setDate(1);
+    end.setTime(start.getTime());
+    end.setMonth(end.getMonth() + 1);
+  } else {  // yearly
+    start.setMonth(0, 1);
+    end.setTime(start.getTime());
+    end.setFullYear(end.getFullYear() + 1);
+  }
+  return { start, end };
 }
 
 function formatDate(date) {
-    return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
-function toDateInputValue(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+function buildPeriodLabel(period, range) {
+  if (period === "daily")   return `Daily report · ${formatDate(range.start)}`;
+  if (period === "weekly") {
+    const lastDay = new Date(range.end); lastDay.setDate(lastDay.getDate() - 1);
+    return `Weekly report · ${formatDate(range.start)} – ${formatDate(lastDay)}`;
+  }
+  if (period === "monthly") {
+    return `Monthly report · ${new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(range.start)}`;
+  }
+  return `Yearly report · ${range.start.getFullYear()}`;
 }
 
-function getSelectedReportDate() {
-    const value = reportDateInput.value;
-    if (!value) return new Date();
-
-    const [year, month, day] = value.split("-").map(Number);
-    const date = new Date(year, month - 1, day);
-    return Number.isNaN(date.getTime()) ? new Date() : date;
+function isIncomeEntry(expense) {
+  return String(expense.type || "").toLowerCase() === "income"
+      || String(expense.category || "").toLowerCase() === "salary";
 }
 
-function getRecordDate(expense) {
-    const date = new Date(expense.createdAt || expense.date || "");
-    return Number.isNaN(date.getTime()) ? null : date;
+// ---------------------------------------------------------------------------
+// Formatting helpers
+// ---------------------------------------------------------------------------
+function formatCurrency(value) {
+  return `₹${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function getPeriodRange(period, anchorDate = new Date()) {
-    const start = new Date(anchorDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-
-    if (period === "daily") {
-        end.setDate(end.getDate() + 1);
-    } else if (period === "weekly") {
-        start.setDate(start.getDate() - start.getDay());
-        end.setTime(start.getTime());
-        end.setDate(end.getDate() + 7);
-    } else if (period === "monthly") {
-        start.setDate(1);
-        end.setTime(start.getTime());
-        end.setMonth(end.getMonth() + 1);
-    } else {
-        start.setMonth(0, 1);
-        end.setTime(start.getTime());
-        end.setFullYear(end.getFullYear() + 1);
-    }
-
-    return { start, end };
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-function periodLabel(period, range) {
-    if (period === "daily") return `Daily report · ${formatDate(range.start)}`;
-    if (period === "weekly") {
-        const lastDay = new Date(range.end);
-        lastDay.setDate(lastDay.getDate() - 1);
-        return `Weekly report · ${formatDate(range.start)} – ${formatDate(lastDay)}`;
-    }
-    if (period === "monthly") {
-        return `Monthly report · ${new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(range.start)}`;
-    }
-    return `Yearly report · ${new Intl.DateTimeFormat("en-IN", { year: "numeric" }).format(range.start)}`;
-}
-
-function escapeHtml(value) {
-    return String(value ?? "").replace(/[&<>"']/g, (character) => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-    })[character]);
-}
-
-function setDownloadState() {
-    downloadButton.disabled = !isPremium || isLoading || !reportLoaded;
-    pdfButton.disabled = !isPremium || isLoading || !reportLoaded;
-    downloadButton.textContent = `📥 Download ${periodFileName("csv")}`;
-    pdfButton.textContent = `📄 Download ${periodFileName("pdf")}`;
-    premiumNotice.hidden = isPremium !== false;
-    premiumNotice.textContent = isPremium === false ? "Download disabled: Premium membership is required." : "";
-}
-
+// ---------------------------------------------------------------------------
+// Render the report for the selected period
+// ---------------------------------------------------------------------------
 function renderReport() {
-    const range = getPeriodRange(selectedPeriod, getSelectedReportDate());
-    reportPeriodLabel.textContent = periodLabel(selectedPeriod, range);
-    periodButtons.forEach((button) => {
-        button.setAttribute("aria-pressed", String(button.dataset.period === selectedPeriod));
-        button.disabled = isLoading;
-    });
-    reportDateInput.disabled = isLoading;
+  const range  = getPeriodRange(selectedPeriod, getSelectedDate());
+  reportPeriodLabel.textContent = buildPeriodLabel(selectedPeriod, range);
 
-    visibleRows = expenses
-        .map((expense) => ({ expense, date: getRecordDate(expense) }))
-        .filter(({ date }) => date && date >= range.start && date < range.end)
-        .sort((left, right) => right.date - left.date);
+  periodButtons.forEach(btn => {
+    btn.setAttribute("aria-pressed", String(btn.dataset.period === selectedPeriod));
+    btn.disabled = isLoading;
+  });
+  reportDateInput.disabled = isLoading;
 
-    visibleTotals = visibleRows.reduce((totals, { expense }) => {
-        const amount = Number(expense.amount) || 0;
-        if (String(expense.type || "").toLowerCase() === "income" || String(expense.category || "").toLowerCase() === "salary") {
-            totals.income += amount;
-        } else {
-            totals.expense += amount;
-        }
-        return totals;
-    }, { income: 0, expense: 0 });
+  // Filter to selected period.
+  const rows = expenses
+    .map(exp => ({ exp, date: exp.createdAt ? new Date(exp.createdAt) : null }))
+    .filter(({ date }) => date && !isNaN(date.getTime()) && date >= range.start && date < range.end)
+    .sort((a, b) => b.date - a.date);
 
-    document.getElementById("totalIncome").textContent = formatCurrency(visibleTotals.income);
-    document.getElementById("totalExpense").textContent = formatCurrency(visibleTotals.expense);
-    document.getElementById("totalSavings").textContent = formatCurrency(visibleTotals.income - visibleTotals.expense);
+  // KPI totals.
+  const totals = rows.reduce((acc, { exp }) => {
+    const amt = Number(exp.amount) || 0;
+    if (isIncomeEntry(exp)) acc.income += amt;
+    else                    acc.expense += amt;
+    return acc;
+  }, { income: 0, expense: 0 });
 
-    if (visibleRows.length === 0) {
-        reportRows.innerHTML = '<tr><td class="report-empty" colspan="5">No report entries for this period.</td></tr>';
-    } else {
-        reportRows.innerHTML = visibleRows.map(({ expense, date }) => {
-            const amount = Number(expense.amount) || 0;
-            const income = String(expense.type || "").toLowerCase() === "income" || String(expense.category || "").toLowerCase() === "salary";
-            return `<tr>
-                <td>${escapeHtml(formatDate(date))}</td>
-                <td>${escapeHtml(expense.description)}</td>
-                <td>${escapeHtml(expense.category || "Other")}</td>
-                <td>${income ? escapeHtml(formatCurrency(amount)) : "—"}</td>
-                <td>${income ? "—" : escapeHtml(formatCurrency(amount))}</td>
-            </tr>`;
-        }).join("");
-    }
+  totalIncomeEl.textContent  = formatCurrency(totals.income);
+  totalExpenseEl.textContent = formatCurrency(totals.expense);
+  totalSavingsEl.textContent = formatCurrency(totals.income - totals.expense);
+  txCountEl.textContent      = String(rows.length);
 
-    setDownloadState();
+  // Table rows.
+  if (!rows.length) {
+    reportRows.innerHTML = `<tr><td colspan="5" class="report-empty">No expenses found for this period.</td></tr>`;
+  } else {
+    reportRows.innerHTML = rows.map(({ exp, date }) => {
+      const income = isIncomeEntry(exp);
+      const amt    = Number(exp.amount) || 0;
+      return `<tr>
+        <td>${escapeHtml(formatDate(date))}</td>
+        <td>${escapeHtml(exp.description)}</td>
+        <td><span class="category-chip">${escapeHtml(exp.category || "Other")}</span></td>
+        <td>${income ? escapeHtml(formatCurrency(amt)) : "—"}</td>
+        <td>${income ? "—" : escapeHtml(formatCurrency(amt))}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  updateDownloadState();
 }
 
+// ---------------------------------------------------------------------------
+// Download button state
+// ---------------------------------------------------------------------------
+function updateDownloadState() {
+  const canDownload = isPremium && reportLoaded && !isLoading;
+  downloadCsvBtn.disabled = !canDownload;
+  downloadPdfBtn.disabled = !canDownload;
+
+  const periodLabel = selectedPeriod[0].toUpperCase() + selectedPeriod.slice(1);
+  downloadCsvBtn.textContent = `📥 Download ${periodLabel}_Report.csv`;
+  downloadPdfBtn.textContent = `📄 Download ${periodLabel}_Report.pdf`;
+
+  // Premium notice bar.
+  if (premiumNotice) premiumNotice.hidden = isPremium !== false;
+  if (premiumBadge)  premiumBadge.hidden  = !isPremium;
+}
+
+// ---------------------------------------------------------------------------
+// Load all expenses + session
+// ---------------------------------------------------------------------------
 async function loadExpenses() {
-    if (!authToken) {
-        window.location.href = "/";
-        return;
+  isLoading      = true;
+  reportLoaded   = false;
+  reportStatus.textContent = "Loading report…";
+  updateDownloadState();
+
+  try {
+    // Parallel: fetch session (for premium status) + first page of expenses.
+    const [session, firstPage] = await Promise.all([
+      apiJson("/api/auth/me"),
+      apiJson("/api/expenses?page=1&limit=40")
+    ]);
+
+    isPremium = session.user?.isPremium === true || session.user?.ispremiumuser === true;
+    expenses  = Array.isArray(firstPage.expenses) ? [...firstPage.expenses] : [];
+
+    // Fetch remaining pages sequentially.
+    const totalPages = Number(firstPage.pagination?.totalPages) || 1;
+    for (let page = 2; page <= totalPages; page++) {
+      const result = await apiJson(`/api/expenses?page=${page}&limit=40`);
+      if (!Array.isArray(result.expenses)) throw new Error("Invalid expenses response.");
+      expenses.push(...result.expenses);
     }
 
-    isLoading = true;
-    reportStatus.textContent = "Loading report...";
-    setDownloadState();
-
-    try {
-        const [session, firstPage] = await Promise.all([
-            apiJson("/api/auth/me"),
-            apiJson("/api/expenses?page=1&limit=40")
-        ]);
-        isPremium = session.user?.isPremium === true || session.user?.ispremiumuser === true;
-        expenses = Array.isArray(firstPage.expenses) ? [...firstPage.expenses] : [];
-
-        const totalPages = Number(firstPage.pagination?.totalPages) || 0;
-        for (let page = 2; page <= totalPages; page += 1) {
-            const result = await apiJson(`/api/expenses?page=${page}&limit=40`);
-            if (!Array.isArray(result.expenses)) throw new Error("The expenses response was invalid.");
-            expenses.push(...result.expenses);
-        }
-
-        reportLoaded = true;
-        reportStatus.textContent = "";
-        renderReport();
-    } catch (error) {
-        reportLoaded = false;
-        reportStatus.textContent = error.message || "Unable to load report data.";
-        reportRows.innerHTML = '<tr><td class="report-empty" colspan="5">Unable to load report data. Please try again.</td></tr>';
-    } finally {
-        isLoading = false;
-        if (reportLoaded) renderReport();
-        else setDownloadState();
-    }
+    reportLoaded             = true;
+    reportStatus.textContent = "";
+  } catch (err) {
+    reportLoaded             = false;
+    reportStatus.textContent = err.message || "Unable to load report data.";
+    reportRows.innerHTML = `<tr><td class="report-empty" colspan="5">Unable to load report data. Please try again.</td></tr>`;
+  } finally {
+    isLoading = false;
+    renderReport();
+  }
 }
 
-function periodFileName(extension) {
-    const label = selectedPeriod[0].toUpperCase() + selectedPeriod.slice(1);
-    return `${label}_Report.${extension}`;
-}
+// ---------------------------------------------------------------------------
+// Download (CSV or PDF) — server-side generation, premium-gated on server too
+// ---------------------------------------------------------------------------
+async function downloadReportFile(format, btn) {
+  if (!isPremium || isLoading || !reportLoaded) return;
 
-async function downloadReportFile(format, button) {
-    if (!isPremium || isLoading || !reportLoaded) return;
-    const originalText = button.textContent;
-    button.disabled = true;
-    button.textContent = `Preparing ${periodFileName(format)}...`;
+  const periodLabel = selectedPeriod[0].toUpperCase() + selectedPeriod.slice(1);
+  const filename    = `${periodLabel}_Report.${format}`;
+  const origText    = btn.textContent;
+  btn.disabled      = true;
+  btn.textContent   = `Preparing ${filename}…`;
 
-    try {
-        const params = new URLSearchParams({
-            period: selectedPeriod,
-            date: reportDateInput.value || toDateInputValue(new Date()),
-            format
-        });
-        const response = await fetch(`/api/expenses/report?${params.toString()}`, { headers: authHeaders() });
-        if (response.status === 401) {
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("expenseTrackerToken");
-            window.location.href = "/";
-            return;
-        }
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || "Unable to download report.");
-        }
-
-        const blob = await response.blob();
-        const disposition = response.headers.get("Content-Disposition") || "";
-        const filenameMatch = disposition.match(/filename="([^"]+)"/i);
-        const filename = filenameMatch?.[1] || periodFileName(format);
-        const blobUrl = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = blobUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        window.setTimeout(() => {
-            link.remove();
-            URL.revokeObjectURL(blobUrl);
-        }, 1000);
-        reportStatus.textContent = `${filename} downloaded.`;
-    } catch (error) {
-        reportStatus.textContent = error.message || "Unable to download report.";
-    } finally {
-        button.textContent = originalText;
-        setDownloadState();
-    }
-}
-
-periodButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-        if (isLoading) return;
-        selectedPeriod = button.dataset.period;
-        renderReport();
+  try {
+    const params = new URLSearchParams({
+      period: selectedPeriod,
+      date:   reportDateInput.value || toDateInputValue(new Date()),
+      format
     });
+
+    const response = await fetch(`/api/expenses/report?${params.toString()}`, {
+      headers: authHeaders()
+    });
+
+    if (response.status === 401) {
+      clearStoredAuth();
+      window.location.href = "login.html";
+      return;
+    }
+
+    // The server returns JSON (not a file) if the period has no expenses.
+    const contentType = response.headers.get("Content-Type") || "";
+    if (contentType.includes("application/json")) {
+      const json = await response.json();
+      showNotification(json.message || "No data to download.", "error");
+      return;
+    }
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.message || `Download failed (${response.status}).`);
+    }
+
+    const blob        = await response.blob();
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const match       = disposition.match(/filename="([^"]+)"/i);
+    const dlName      = match?.[1] || filename;
+
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href     = url;
+    link.download = dlName;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => { link.remove(); URL.revokeObjectURL(url); }, 1000);
+
+    showNotification(`${dlName} downloaded successfully.`, "success");
+  } catch (err) {
+    showNotification(err.message || "Download failed.", "error");
+  } finally {
+    btn.textContent = origText;
+    updateDownloadState();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Event listeners
+// ---------------------------------------------------------------------------
+periodButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (isLoading) return;
+    selectedPeriod = btn.dataset.period;
+    renderReport();
+  });
 });
 
-reportDateInput.value = toDateInputValue(new Date());
 reportDateInput.addEventListener("change", () => {
-    if (!isLoading) renderReport();
+  if (!isLoading) renderReport();
 });
 
-downloadButton.addEventListener("click", () => {
-    downloadReportFile("csv", downloadButton);
-});
+downloadCsvBtn.addEventListener("click", () => downloadReportFile("csv", downloadCsvBtn));
+downloadPdfBtn.addEventListener("click", () => downloadReportFile("pdf", downloadPdfBtn));
 
-pdfButton.addEventListener("click", () => {
-    downloadReportFile("pdf", pdfButton);
-});
-
+// ---------------------------------------------------------------------------
+// Initialise
+// ---------------------------------------------------------------------------
+reportDateInput.value = toDateInputValue(new Date());
 loadExpenses();

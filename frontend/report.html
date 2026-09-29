@@ -1,67 +1,123 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Expense Report | Expense Tracker</title>
-	<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense Report — Expense Tracker</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="report-body">
-	<main class="report-shell">
-		<header class="report-header">
-			<div>
-				<span class="report-kicker">FINANCIAL OVERVIEW</span>
-				<h1>Expense Report</h1>
-				<p id="reportPeriodLabel">Daily report</p>
-			</div>
-			<a class="report-back" href="/">Back to dashboard</a>
-		</header>
+<body>
+  <main class="dashboard">
 
-		<section class="report-panel" aria-label="Expense report">
-			<div class="report-toolbar">
-<div class="report-filters">
-<div class="report-periods" role="group" aria-label="Report period">
-<button type="button" data-period="daily" aria-pressed="true">Daily</button>
-<button type="button" data-period="weekly" aria-pressed="false">Weekly</button>
-<button type="button" data-period="monthly" aria-pressed="false">Monthly</button>
-<button type="button" data-period="yearly" aria-pressed="false">Yearly</button>
-</div>
-<label class="report-date-filter" for="reportDate">
-Report date
-<input id="reportDate" type="date" aria-label="Choose the date for this report">
-</label>
-				</div>
-<div class="report-downloads">
-<button id="downloadReport" class="report-download" type="button" disabled aria-describedby="premiumNotice">📥 Download Daily_Report.csv</button>
-<button id="downloadPdf" class="report-download report-pdf" type="button" disabled aria-describedby="premiumNotice">📄 Download Daily_Report.pdf</button>
-</div>
-			</div>
-			<p id="reportStatus" class="report-status" role="status" aria-live="polite">Loading report...</p>
-			<p id="premiumNotice" class="premium-notice" hidden></p>
+    <!-- ================================================================
+         PAGE HEADER
+    ================================================================ -->
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Financial overview</p>
+        <h1>Expense Report</h1>
+        <p class="subtitle" id="reportPeriodLabel">Select a period below to view your report.</p>
+      </div>
+      <div class="header-actions">
+        <span id="premiumBadge" class="premium-badge" hidden>⭐ Premium</span>
+        <a href="expenses.html" class="nav-link-btn">← Back to Expenses</a>
+      </div>
+    </header>
 
-			<div class="report-summary" aria-label="Report totals">
-				<div><span>Total Income</span><strong id="totalIncome">₹0</strong></div>
-				<div><span>Total Expense</span><strong id="totalExpense">₹0</strong></div>
-				<div><span>Savings</span><strong id="totalSavings">₹0</strong></div>
-			</div>
+    <!-- ================================================================
+         NOTIFICATION BANNER
+    ================================================================ -->
+    <div id="notificationBanner" class="notification-banner" hidden role="alert" aria-live="assertive"></div>
 
-			<div class="report-table-wrap">
-				<table class="report-table">
-					<thead>
-						<tr>
-							<th scope="col">Date</th>
-							<th scope="col">Description</th>
-							<th scope="col">Category</th>
-							<th scope="col">Income</th>
-							<th scope="col">Expense</th>
-						</tr>
-					</thead>
-					<tbody id="reportRows"></tbody>
-				</table>
-			</div>
-<p class="report-data-note">Salary-category records are counted as income. CSV and PDF downloads require Premium membership.</p>
-		</section>
-	</main>
-	<script src="js/report.js"></script>
+    <!-- ================================================================
+         REPORT PANEL
+    ================================================================ -->
+    <section class="panel report-panel" aria-label="Expense report">
+
+      <!-- Period selector + date picker + download buttons -->
+      <div class="report-toolbar">
+        <div class="report-filters">
+
+          <!-- Period tabs -->
+          <div class="report-periods" role="group" aria-label="Report period">
+            <button type="button" data-period="daily"   aria-pressed="true">Daily</button>
+            <button type="button" data-period="weekly"  aria-pressed="false">Weekly</button>
+            <button type="button" data-period="monthly" aria-pressed="false">Monthly</button>
+            <button type="button" data-period="yearly"  aria-pressed="false">Yearly</button>
+          </div>
+
+          <!-- Date picker -->
+          <label class="report-date-filter" for="reportDate">
+            <span>Report date</span>
+            <input id="reportDate" type="date" aria-label="Choose the date for this report">
+          </label>
+        </div>
+
+        <!-- Download buttons -->
+        <div class="report-downloads">
+          <button id="downloadCsvBtn" class="report-download" type="button"
+                  aria-describedby="premiumNotice" disabled>
+            📥 Download CSV
+          </button>
+          <button id="downloadPdfBtn" class="report-download report-pdf" type="button"
+                  aria-describedby="premiumNotice" disabled>
+            📄 Download PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Premium notice (shown to non-premium users) -->
+      <div id="premiumNotice" class="premium-notice-bar" hidden role="alert">
+        <span>🔒 <strong>Premium membership required</strong> to download reports.</span>
+        <a href="expenses.html#premium" class="premium-upgrade-link">Upgrade to Premium →</a>
+      </div>
+
+      <!-- Status / loading message -->
+      <p id="reportStatus" class="expense-list-status" role="status" aria-live="polite">Loading report…</p>
+
+      <!-- KPI summary cards -->
+      <div class="report-summary" aria-label="Report totals">
+        <div class="report-kpi income-kpi">
+          <span class="eyebrow">Total Income</span>
+          <strong id="totalIncome">₹0</strong>
+        </div>
+        <div class="report-kpi expense-kpi">
+          <span class="eyebrow">Total Expense</span>
+          <strong id="totalExpense">₹0</strong>
+        </div>
+        <div class="report-kpi savings-kpi">
+          <span class="eyebrow">Net Savings</span>
+          <strong id="totalSavings">₹0</strong>
+        </div>
+        <div class="report-kpi count-kpi">
+          <span class="eyebrow">Transactions</span>
+          <strong id="transactionCount">0</strong>
+        </div>
+      </div>
+
+      <!-- Transaction table -->
+      <div class="table-wrap">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Description</th>
+              <th scope="col">Category</th>
+              <th scope="col">Income</th>
+              <th scope="col">Expense</th>
+            </tr>
+          </thead>
+          <tbody id="reportRows"></tbody>
+        </table>
+      </div>
+
+      <p class="report-data-note">
+        Salary-category entries are counted as income.
+        CSV and PDF downloads require Premium membership.
+      </p>
+    </section>
+
+  </main>
+  <script src="js/report.js"></script>
 </body>
 </html>

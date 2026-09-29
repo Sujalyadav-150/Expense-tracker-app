@@ -135,20 +135,43 @@ exports.getLeaderboard = async (req, res) => {
 
 exports.downloadReport = async (req, res) => {
   try {
+    // Premium gate — checked against DB-backed user (req.user is re-fetched by auth middleware).
     if (!req.user.isPremium && !req.user.ispremiumuser) {
       return res.status(403).json({
         success: false,
-        message: "Access Denied: Only users with premium membership can download reports."
+        message: "Premium membership is required to download reports. Please upgrade to Premium."
       });
     }
 
-    const format = String(req.query.format || "").toLowerCase();
+    const format = String(req.query.format || req.query.type || "").toLowerCase();
     const report = await buildReport(
-      req.user.email,
+      req.user.email,   // always use server-side identity — never trust frontend userId
       req.user.name,
       req.query.period,
       req.query.date
     );
+
+    // Return a clean 200 message instead of an empty/broken file when there
+    // are no transactions in the selected period.
+    if (!report.transactions.length) {
+      if (format === "csv" || format === "pdf") {
+        return res.status(200).json({
+          success: false,
+          message: `No expenses found for the selected ${report.period || "period"}. Nothing to download.`
+        });
+      }
+      return res.json({
+        success: true,
+        fileName: report.fileName,
+        period: report.period,
+        dateRange: report.dateRange,
+        totalIncome: report.totalIncome,
+        totalExpense: report.totalExpense,
+        savings: report.savings,
+        transactions: [],
+        message: "No expenses found for the selected period."
+      });
+    }
 
     if (format === "csv" || String(req.headers.accept || "").includes("text/csv")) {
       const csv = createCsvReport(report);

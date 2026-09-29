@@ -5,6 +5,34 @@ const db = require("../utils/db");
 const JWT_SECRET = process.env.JWT_SECRET;
 const PREMIUM_AMOUNT = 199;
 
+// ---------------------------------------------------------------------------
+// Cashfree SDK setup
+// ---------------------------------------------------------------------------
+// Lazy-initialise the Cashfree client so that the module can still be loaded
+// even if the env vars are not set (e.g. during tests or in a stripped env).
+let _cashfree = null;
+function getCashfreeClient() {
+  if (_cashfree) return _cashfree;
+
+  const appId     = process.env.CASHFREE_APP_ID;
+  const secretKey = process.env.CASHFREE_SECRET_KEY;
+
+  if (!appId || !secretKey) {
+    // No Cashfree credentials — fall back to sandbox-simulation mode.
+    return null;
+  }
+
+  const { Cashfree, CFEnvironment } = require("cashfree-pg");
+  const envStr = String(process.env.CASHFREE_ENV || "sandbox").trim().toLowerCase();
+  const cfEnv  = envStr === "production" ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
+
+  _cashfree = new Cashfree(cfEnv, appId, secretKey);
+  return _cashfree;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 function generateOrderId() {
   return `order_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`;
 }
@@ -12,14 +40,23 @@ function generateOrderId() {
 function generateToken(user) {
   if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is required.");
   return jwt.sign({
-    id: user.id,
-    email: user.email,
-    name: user.name || "User",
-    isPremium: true,
+    id:            user.id,
+    email:         user.email,
+    name:          user.name || "User",
+    isPremium:     true,
     ispremiumuser: true
   }, JWT_SECRET, { expiresIn: "30d" });
 }
 
+// Derive a stable customer_id from the user's email (Cashfree requires an
+// alphanumeric string, no special chars other than - and _).
+function toCashfreeCustomerId(email) {
+  return `cust_${crypto.createHash("md5").update(email).digest("hex").slice(0, 20)}`;
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/purchase/premium
+// ---------------------------------------------------------------------------
 exports.createPremiumOrder = async (req, res) => {
   try {
     if (req.user.isPremium || req.user.ispremiumuser) {
@@ -27,52 +64,144 @@ exports.createPremiumOrder = async (req, res) => {
     }
 
     const orderId = generateOrderId();
-    const paymentSessionId = `sandbox_session_${crypto.randomBytes(12).toString("hex")}`;
+    const cashfree = getCashfreeClient();
+    let paymentSessionId;
+    let mode;
+
+    if (cashfree) {
+      // ---------------------------------------------------------------
+      // Real Cashfree order
+      // ---------------------------------------------------------------
+      const returnUrl = process.env.CASHFREE_RETURN_URL
+        || `${req.protocol}://${req.get("host")}/expenses.html`;
+
+      const createOrderRequest = {
+        order_id:       orderId,
+        order_amount:   PREMIUM_AMOUNT,
+        order_currency: "INR",
+        customer_details: {
+          customer_id:    toCashfreeCustomerId(req.user.email),
+          customer_email: req.user.email,
+          customer_phone: req.user.phone || "9999999999"   // phone is required by Cashfree
+        },
+        order_meta: {
+          return_url: `${returnUrl}?order_id=${orderId}&order_token={order_token}`
+        },
+        order_note: "Expense Tracker Premium Membership"
+      };
+
+      const response = await cashfree.PGCreateOrder(createOrderRequest);
+      const data = response?.data || response;
+
+      if (!data || !data.payment_session_id) {
+        console.error("Cashfree PGCreateOrder unexpected response:", JSON.stringify(data));
+        return res.status(502).json({
+          success: false,
+          message: "Payment gateway did not return a session. Please try again."
+        });
+      }
+
+      paymentSessionId = data.payment_session_id;
+      mode = "cashfree";
+    } else {
+      // ---------------------------------------------------------------
+      // Fallback: sandbox simulation (no Cashfree credentials set)
+      // ---------------------------------------------------------------
+      paymentSessionId = `sandbox_session_${crypto.randomBytes(12).toString("hex")}`;
+      mode = "sandbox_simulation";
+    }
+
+    // Persist pending order in DB (works for both real and simulated).
     await db.createPremiumOrder({
-      userId: req.user.id,
-      email: req.user.email,
+      userId:           req.user.id,
+      email:            req.user.email,
       orderId,
-      amount: PREMIUM_AMOUNT,
+      amount:           PREMIUM_AMOUNT,
       paymentSessionId
     });
 
     return res.status(201).json({
-      success: true,
+      success:            true,
       payment_session_id: paymentSessionId,
-      order_id: orderId,
-      amount: PREMIUM_AMOUNT,
-      mode: "sandbox"
+      order_id:           orderId,
+      amount:             PREMIUM_AMOUNT,
+      mode,
+      // Let the frontend know which Cashfree JS env to load.
+      cashfree_env: String(process.env.CASHFREE_ENV || "sandbox").trim().toLowerCase()
     });
   } catch (error) {
     console.error("create premium order error:", error.message);
     if (db.isDatabaseError(error)) {
       return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
     }
+    // Surface Cashfree API errors clearly.
+    const cfMsg = error?.response?.data?.message || error?.response?.data?.error;
+    if (cfMsg) {
+      return res.status(502).json({ success: false, message: `Payment gateway error: ${cfMsg}` });
+    }
     return res.status(500).json({ success: false, message: "Could not create premium order." });
   }
 };
 
+// ---------------------------------------------------------------------------
+// POST /api/purchase/update-status
+// ---------------------------------------------------------------------------
+// Called by the frontend after the Cashfree checkout completes (or fails).
+// For real Cashfree orders the frontend sends the order_id; we re-verify the
+// actual payment status directly from Cashfree rather than trusting the
+// frontend-supplied status string.
 exports.updatePremiumStatus = async (req, res) => {
   try {
-    const orderId = String(req.body.orderId || "").trim();
-    const requestedStatus = String(req.body.status || "").trim().toUpperCase();
-    const isSandboxSuccess = req.body.testSuccess === true;
+    const orderId        = String(req.body.orderId || "").trim();
+    const clientStatus   = String(req.body.status  || "").trim().toUpperCase();
+    // testSuccess is ONLY honoured in sandbox-simulation mode (no real credentials).
+    const isSandboxSim   = req.body.testSuccess === true;
 
-    if (!orderId || !["SUCCESSFUL", "FAILED", "CANCELLED", "SUCCESS"].includes(requestedStatus)) {
-      return res.status(400).json({ success: false, message: "Valid orderId and status are required." });
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: "orderId is required." });
     }
 
-    const successful = (requestedStatus === "SUCCESSFUL" || requestedStatus === "SUCCESS") && isSandboxSuccess;
-    const status = successful ? "SUCCESSFUL" : "FAILED";
-    const order = await db.updatePremiumOrder(orderId, req.user.email, status);
+    const cashfree = getCashfreeClient();
+    let successful = false;
+
+    if (cashfree) {
+      // ---------------------------------------------------------------
+      // Verify with Cashfree API — never trust the frontend status.
+      // ---------------------------------------------------------------
+      try {
+        const response = await cashfree.PGFetchOrder(orderId);
+        const data = response?.data || response;
+        const cfStatus = String(data?.order_status || "").toUpperCase();
+        // Cashfree order_status is PAID when fully collected.
+        successful = cfStatus === "PAID";
+      } catch (fetchErr) {
+        console.error("PGFetchOrder error:", fetchErr.message);
+        // If Cashfree is unreachable, mark as FAILED to be safe.
+        successful = false;
+      }
+    } else {
+      // ---------------------------------------------------------------
+      // Sandbox-simulation fallback: honour the testSuccess flag.
+      // ---------------------------------------------------------------
+      successful = isSandboxSim
+        && (clientStatus === "SUCCESSFUL" || clientStatus === "SUCCESS");
+    }
+
+    const finalStatus = successful ? "SUCCESSFUL" : "FAILED";
+
+    // Make sure this order belongs to the authenticated user (prevent
+    // one user from activating another user's order).
+    const order = await db.updatePremiumOrder(orderId, req.user.email, finalStatus);
     if (!order) {
       return res.status(404).json({ success: false, message: "Premium order not found." });
     }
 
     if (!successful) {
-      return res.status(200).json({ success: false, status: "FAILED" });
+      return res.status(200).json({ success: false, status: "FAILED", message: "Payment was not successful." });
     }
 
+    // Mark the user as premium in the DB and issue a fresh JWT so that
+    // the frontend does not have to re-login.
     const user = await db.markUserPremium(req.user.email);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
@@ -80,8 +209,8 @@ exports.updatePremiumStatus = async (req, res) => {
 
     return res.json({
       success: true,
-      status: "SUCCESSFUL",
-      token: generateToken(user),
+      status:  "SUCCESSFUL",
+      token:   generateToken(user),
       user
     });
   } catch (error) {
