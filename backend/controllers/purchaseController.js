@@ -124,7 +124,7 @@ exports.createPremiumOrder = async (req, res) => {
           customer_phone: req.user.phone || "9999999999"   // phone is required by Cashfree
         },
         order_meta: {
-          return_url: `${returnUrl}${returnUrl.includes("?") ? "&" : "?"}order_id=${orderId}&order_token={order_token}`
+          return_url: `${returnUrl}${returnUrl.includes("?") ? "&" : "?"}order_id={order_id}`
         },
         order_note: "Expense Tracker Premium Membership"
       };
