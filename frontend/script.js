@@ -216,6 +216,7 @@ function renderLeaderboard(rows) {
     return `<tr class="${isCurrentUser ? "current-user" : ""}">
       <td data-label="Rank">#${row.rank}</td>
       <td data-label="User"><strong>${esc(row.name)}</strong>${isCurrentUser ? " <span class=\"you-badge\">You</span>" : ""}</td>
+      <td data-label="Membership"><span class="membership-badge ${row.isPremium ? "premium-membership-badge" : "standard-membership-badge"}">${row.isPremium ? "👑 Premium" : "👤 Standard"}</span></td>
       <td data-label="Total Expense">${formatCurrency(row.totalExpense)}</td>
       <td data-label="Expenses">${row.expenseCount}</td>
     </tr>`;
