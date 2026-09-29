@@ -14,9 +14,9 @@
     ================================================================ -->
     <header class="page-header">
       <div>
-        <p class="eyebrow">Financial overview</p>
+        <p class="eyebrow">Spending overview</p>
         <h1>Expense Report</h1>
-        <p class="subtitle" id="reportPeriodLabel">Select a period below to view your report.</p>
+        <p class="subtitle" id="reportPeriodLabel">Track your spending clearly, by day, week, month or year.</p>
       </div>
       <div class="header-actions">
         <span id="premiumBadge" class="premium-badge" hidden>⭐ Premium</span>
@@ -76,22 +76,22 @@
       <p id="reportStatus" class="expense-list-status" role="status" aria-live="polite">Loading report…</p>
 
       <!-- KPI summary cards -->
-      <div class="report-summary" aria-label="Report totals">
-        <div class="report-kpi income-kpi">
-          <span class="eyebrow">Total Income</span>
-          <strong id="totalIncome">₹0</strong>
-        </div>
+      <div class="report-summary" aria-label="Expense summary">
         <div class="report-kpi expense-kpi">
           <span class="eyebrow">Total Expense</span>
           <strong id="totalExpense">₹0</strong>
         </div>
-        <div class="report-kpi savings-kpi">
-          <span class="eyebrow">Net Savings</span>
-          <strong id="totalSavings">₹0</strong>
+        <div class="report-kpi average-kpi">
+          <span class="eyebrow">Average Expense</span>
+          <strong id="averageExpense">₹0</strong>
         </div>
         <div class="report-kpi count-kpi">
           <span class="eyebrow">Transactions</span>
           <strong id="transactionCount">0</strong>
+        </div>
+        <div class="report-kpi category-kpi">
+          <span class="eyebrow">Categories Used</span>
+          <strong id="categoryCount">0</strong>
         </div>
       </div>
 
@@ -103,8 +103,7 @@
               <th scope="col">Date</th>
               <th scope="col">Description</th>
               <th scope="col">Category</th>
-              <th scope="col">Income</th>
-              <th scope="col">Expense</th>
+              <th scope="col">Amount</th>
             </tr>
           </thead>
           <tbody id="reportRows"></tbody>
@@ -112,7 +111,7 @@
       </div>
 
       <p class="report-data-note">
-        Salary-category entries are counted as income.
+        This report focuses only on your expenses.
         CSV and PDF downloads require Premium membership.
       </p>
     </section>
