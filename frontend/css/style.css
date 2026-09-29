@@ -837,3 +837,149 @@ td { font-size: .88rem; }
   .report-periods button { padding: 7px 12px; font-size: .78rem; }
   .my-stats { grid-template-columns: 1fr; }
 }
+
+
+/* ==========================================================================
+   Modern UI polish — shared pages & report
+   ========================================================================== */
+body{
+  background:
+    radial-gradient(700px 420px at 100% 0%,#e7f1e4 0,transparent 58%),
+    radial-gradient(650px 380px at 0% 100%,#f7ecd0 0,transparent 55%),
+    #f6f4ed;
+}
+.container,.dashboard{
+  width:min(1180px,92%);
+  margin:54px auto;
+}
+.page-header{
+  padding:24px 26px;
+  margin-bottom:24px;
+  border:1px solid #dfe5dc;
+  border-radius:18px;
+  background:rgba(255,253,248,.86);
+  box-shadow:0 18px 45px rgba(41,62,46,.07);
+}
+.panel{
+  border-radius:16px;
+  background:rgba(255,253,248,.94);
+  border-color:#dfe5dc;
+  box-shadow:0 16px 40px rgba(41,62,46,.065);
+}
+input,select{
+  min-height:45px;
+  border-radius:10px;
+  border-color:#d7ded5;
+  background:#fff;
+}
+input:focus,select:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(31,107,74,.10);
+}
+button{
+  min-height:44px;
+  border-radius:10px;
+  background:linear-gradient(135deg,#237b56,#1f6b4a);
+  box-shadow:0 7px 16px rgba(31,107,74,.12);
+  transition:transform .16s ease,box-shadow .16s ease,background .16s ease;
+}
+button:hover{
+  background:linear-gradient(135deg,#2a8a61,#18563c);
+  transform:translateY(-1px);
+  box-shadow:0 10px 20px rgba(31,107,74,.16);
+}
+.nav-link-btn,.btn-refresh,.delete-button{
+  box-shadow:none;
+}
+table{
+  border:1px solid #e3e8e1;
+  border-radius:12px;
+  overflow:hidden;
+}
+th{
+  background:#f5f8f4;
+  padding:14px 13px;
+}
+td{padding:14px 13px}
+tbody tr{transition:background .15s ease}
+tbody tr:hover{background:#f7faf6}
+.category-chip,.source-chip,.you-badge,.membership-badge{
+  border-radius:999px;
+}
+.auth-wrap{
+  background:transparent;
+}
+.auth-card{
+  border-radius:20px;
+  padding:38px 34px;
+  background:rgba(255,253,248,.96);
+  box-shadow:0 24px 60px rgba(41,62,46,.10);
+}
+.auth-card h1{
+  letter-spacing:-.035em;
+}
+.auth-footer{
+  margin-top:22px;
+}
+.auth-footer a,.text-link{
+  text-decoration:none;
+}
+.auth-footer a:hover,.text-link:hover{text-decoration:underline}
+
+/* Report refinements */
+.report-panel{
+  border-radius:22px;
+  box-shadow:0 24px 55px rgba(24,34,29,.09);
+}
+.report-toolbar{
+  padding:26px 28px;
+}
+.report-periods{
+  box-shadow:inset 0 1px 2px rgba(24,34,29,.03);
+}
+.report-periods button{
+  min-height:40px;
+  box-shadow:none;
+}
+.report-date-filter input{
+  min-height:40px;
+}
+.report-download{
+  min-height:43px;
+  box-shadow:0 7px 16px rgba(31,107,74,.12);
+}
+.premium-notice-bar{
+  box-shadow:0 5px 14px rgba(118,91,19,.04);
+}
+.premium-upgrade-link{
+  transition:transform .16s ease,background .16s ease;
+}
+.premium-upgrade-link:hover{
+  transform:translateY(-1px);
+}
+.report-kpi{
+  box-shadow:0 8px 20px rgba(24,34,29,.055);
+}
+.report-table{
+  border:0;
+}
+.report-table th{
+  background:#f5f8f4;
+}
+.report-table td{
+  background:#fff;
+}
+.report-table tbody tr:hover td{
+  background:#f7faf6;
+}
+.report-data-note{
+  color:#718078;
+}
+
+@media(max-width:800px){
+  .container,.dashboard{width:min(94%,680px);margin:28px auto}
+  .page-header{padding:20px}
+  .auth-card{padding:30px 24px}
+  .report-panel{border-radius:17px}
+}
