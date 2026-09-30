@@ -16,6 +16,7 @@ const downloadCsvBtn     = document.getElementById("downloadCsvBtn");
 const downloadPdfBtn     = document.getElementById("downloadPdfBtn");
 const premiumNotice      = document.getElementById("premiumNotice");
 const reportBuyPremiumBtn = document.getElementById("reportBuyPremiumBtn");
+const premiumNoticeClose = document.getElementById("premiumNoticeClose");
 const premiumBadge       = document.getElementById("premiumBadge");
 const reportDateInput    = document.getElementById("reportDate");
 const notificationBanner = document.getElementById("notificationBanner");
@@ -214,7 +215,7 @@ function updateDownloadState() {
   // Premium users never see the upgrade gate.
   if (premiumBadge) premiumBadge.hidden = !isPremium;
   if (premiumNotice) {
-    premiumNotice.hidden = !(isPremium === false && canAttempt);
+    if (isPremium !== false || !canAttempt) premiumNotice.hidden = true;
   }
 }
 
@@ -265,9 +266,12 @@ async function loadExpenses() {
 function showPremiumGate() {
   if (!premiumNotice) return;
   premiumNotice.hidden = false;
-  premiumNotice.scrollIntoView({ behavior: "smooth", block: "center" });
-  if (reportBuyPremiumBtn) setTimeout(() => reportBuyPremiumBtn.focus(), 250);
+  if (reportBuyPremiumBtn) setTimeout(() => reportBuyPremiumBtn.focus(), 100);
 }
+
+premiumNoticeClose?.addEventListener("click", () => {
+  if (premiumNotice) premiumNotice.hidden = true;
+});
 
 async function downloadReportFile(format, btn) {
   if (isPremium === false) {
