@@ -38,10 +38,10 @@ function simulationEnabled() {
 
 function getReturnUrl(req) {
   const configured = String(process.env.CASHFREE_RETURN_URL || "").trim();
-  const publicUrl = String(process.env.PUBLIC_APP_URL || "").trim().replace(/\/+$/, "");
-  const fallback = publicUrl
-    ? `${publicUrl}/expenses.html`
-    : `${req.protocol}://${req.get("host")}/expenses.html`;
+  // Prefer an explicitly configured Cashfree return URL. Otherwise return
+  // to the same deployment that created the order, so payment never jumps
+  // to a different Vercel deployment.
+  const fallback = `${req.protocol}://${req.get("host")}/expenses.html`;
   const returnUrl = configured || fallback;
 
   if (
