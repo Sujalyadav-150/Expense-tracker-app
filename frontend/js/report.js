@@ -348,6 +348,7 @@ reportDateInput.addEventListener("change", () => {
 downloadCsvBtn.addEventListener("click", () => downloadReportFile("csv", downloadCsvBtn));
 
 downloadPdfBtn.addEventListener("click", () => downloadReportFile("pdf", downloadPdfBtn));
+reportBuyPremiumBtn?.addEventListener("click", purchasePremiumFromReport);
 
 async function purchasePremiumFromReport() {
   if (isPremium === true) return;
