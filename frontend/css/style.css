@@ -578,32 +578,68 @@ td { font-size: .88rem; }
 .report-pdf:hover { background: #963b34; }
 
 .premium-notice-bar {
+  position: fixed;
+  top: 22px;
+  right: 22px;
+  z-index: 9999;
+  width: min(410px, calc(100vw - 32px));
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 14px;
-  margin: 18px 26px 0;
-  padding: 13px 16px;
-  background: #fffaf0;
-  border: 1px solid #f0d99a;
-  border-radius: 10px;
-  font: .82rem Arial, sans-serif;
-  color: #765b13;
-  flex-wrap: wrap;
+  padding: 20px 20px 18px;
+  background: #fffdf7;
+  border: 1px solid #ead9a5;
+  border-radius: 16px;
+  font: .88rem Arial, sans-serif;
+  color: #5f501f;
+  box-shadow: 0 18px 45px rgba(24, 34, 29, .18);
+  animation: premiumNoticeIn .25s ease-out;
 }
-
+.premium-notice-bar[hidden] { display: none; }
+.premium-notice-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-right: 24px;
+}
+.premium-notice-copy strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #25352d;
+  font-size: .98rem;
+}
+.premium-notice-copy span:last-child { display: block; line-height: 1.5; }
+.premium-lock-icon { font-size: 1.25rem; line-height: 1.2; }
+.premium-notice-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  background: transparent;
+  color: #7d847f;
+  font-size: 1.35rem;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.premium-notice-close:hover { background: #f1eee4; color: #26362e; }
 .premium-upgrade-link {
-  padding: 7px 11px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
   background: #1f6b4a;
   color: #fff;
-  border-radius: 7px;
+  border-radius: 9px;
   font-weight: 700;
   text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 5px 12px rgba(31,107,74,.16);
 }
-
-.premium-upgrade-link:hover {
-  background: #18563c;
-  text-decoration: none;
+.premium-upgrade-link:hover { background: #18563c; text-decoration: none; }
+@keyframes premiumNoticeIn {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .report-panel > .expense-list-status {
