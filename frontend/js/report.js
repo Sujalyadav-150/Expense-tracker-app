@@ -15,6 +15,7 @@ const reportPeriodLabel  = document.getElementById("reportPeriodLabel");
 const downloadCsvBtn     = document.getElementById("downloadCsvBtn");
 const downloadPdfBtn     = document.getElementById("downloadPdfBtn");
 const premiumNotice      = document.getElementById("premiumNotice");
+const reportBuyPremiumBtn = document.getElementById("reportBuyPremiumBtn");
 const premiumBadge       = document.getElementById("premiumBadge");
 const reportDateInput    = document.getElementById("reportDate");
 const notificationBanner = document.getElementById("notificationBanner");
@@ -196,17 +197,21 @@ function renderReport() {
 // Download button state
 // ---------------------------------------------------------------------------
 function updateDownloadState() {
-  const canDownload = isPremium && reportLoaded && !isLoading;
-  downloadCsvBtn.disabled = !canDownload;
-  downloadPdfBtn.disabled = !canDownload;
+  // Keep download buttons clickable for free users so we can show the
+  // premium gate instead of silently disabling the action.
+  const canDownload = isPremium === true && reportLoaded && !isLoading;
+  const canAttempt   = reportLoaded && !isLoading;
+  downloadCsvBtn.disabled = !canAttempt;
+  downloadPdfBtn.disabled = !canAttempt;
+  downloadCsvBtn.classList.toggle("report-locked", isPremium === false && canAttempt);
+  downloadPdfBtn.classList.toggle("report-locked", isPremium === false && canAttempt);
 
   const periodLabel = selectedPeriod[0].toUpperCase() + selectedPeriod.slice(1);
   downloadCsvBtn.textContent = `📥 Download ${periodLabel}_Report.csv`;
   downloadPdfBtn.textContent = `📄 Download ${periodLabel}_Report.pdf`;
 
   // Premium notice bar.
-  if (premiumNotice) premiumNotice.hidden = isPremium !== false;
-  if (premiumBadge)  premiumBadge.hidden  = !isPremium;
+  if (premiumBadge) premiumBadge.hidden = !isPremium;
 }
 
 // ---------------------------------------------------------------------------
@@ -253,7 +258,18 @@ async function loadExpenses() {
 // ---------------------------------------------------------------------------
 // Download (CSV or PDF) — server-side generation, premium-gated on server too
 // ---------------------------------------------------------------------------
+function showPremiumGate() {
+  if (!premiumNotice) return;
+  premiumNotice.hidden = false;
+  premiumNotice.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (reportBuyPremiumBtn) setTimeout(() => reportBuyPremiumBtn.focus(), 250);
+}
+
 async function downloadReportFile(format, btn) {
+  if (isPremium === false) {
+    showPremiumGate();
+    return;
+  }
   if (!isPremium || isLoading || !reportLoaded) return;
 
   const periodLabel = selectedPeriod[0].toUpperCase() + selectedPeriod.slice(1);
@@ -330,7 +346,105 @@ reportDateInput.addEventListener("change", () => {
 });
 
 downloadCsvBtn.addEventListener("click", () => downloadReportFile("csv", downloadCsvBtn));
+
 downloadPdfBtn.addEventListener("click", () => downloadReportFile("pdf", downloadPdfBtn));
+
+async function purchasePremiumFromReport() {
+  if (isPremium === true) return;
+
+  if (!reportBuyPremiumBtn) return;
+  const originalText = reportBuyPremiumBtn.textContent;
+  reportBuyPremiumBtn.disabled = true;
+  reportBuyPremiumBtn.textContent = "Creating order…";
+
+  try {
+    const order = await apiJson("/api/purchase/premium", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    });
+
+    if (order.mode === "sandbox_simulation") {
+      const paid = window.confirm(
+        `Cashfree Sandbox Simulation\\n\\nOrder ID: ${order.order_id}\\nAmount: ₹${Number(order.amount || 199).toFixed(2)}\\n\\nClick OK to simulate a successful payment.`
+      );
+      if (!paid) {
+        await apiJson("/api/purchase/update-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId: order.order_id, status: "FAILED", testSuccess: false })
+        }).catch(() => {});
+        throw new Error("Payment cancelled.");
+      }
+
+      const result = await apiJson("/api/purchase/update-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.order_id, status: "SUCCESSFUL", testSuccess: true })
+      });
+      if (!result.success) throw new Error(result.message || "Payment verification failed.");
+      activatePremiumLocally(result);
+      return;
+    }
+
+    if (typeof Cashfree !== "function") {
+      throw new Error("Cashfree checkout is not available. Please refresh the page.");
+    }
+
+    const cashfree = Cashfree({
+      mode: order.cashfree_env === "production" ? "production" : "sandbox"
+    });
+
+    // Open Cashfree's hosted checkout immediately from the user's button click.
+    const result = await cashfree.checkout({
+      paymentSessionId: order.payment_session_id,
+      redirectTarget: "_modal"
+    });
+
+    if (result?.error || result?.paymentDetails?.paymentStatus === "FAILED") {
+      await apiJson("/api/purchase/update-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.order_id, status: "FAILED", testSuccess: false })
+      }).catch(() => {});
+      throw new Error(result?.error?.message || "Payment failed or was cancelled.");
+    }
+
+    const verified = await apiJson("/api/purchase/update-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: order.order_id, status: "SUCCESSFUL" })
+    });
+
+    if (!verified.success) {
+      throw new Error(verified.message || "Payment verification failed.");
+    }
+
+    activatePremiumLocally(verified);
+  } catch (err) {
+    if (err?.message !== "Payment cancelled.") {
+      showNotification(err.message || "Unable to start Premium payment.", "error");
+    }
+  } finally {
+    reportBuyPremiumBtn.disabled = false;
+    reportBuyPremiumBtn.textContent = originalText;
+  }
+}
+
+function activatePremiumLocally(result) {
+  isPremium = true;
+  if (result.token) {
+    localStorage.setItem("authToken", result.token);
+    localStorage.setItem("expenseTrackerToken", result.token);
+  }
+  if (result.user) {
+    localStorage.setItem("loggedInUser", JSON.stringify(result.user));
+    localStorage.setItem("expenseTrackerUser", JSON.stringify(result.user));
+  }
+  if (premiumNotice) premiumNotice.hidden = true;
+  showNotification("🎉 Premium activated. CSV and PDF downloads are now unlocked.", "success");
+  renderReport();
+}
+
 
 // ---------------------------------------------------------------------------
 // Initialise
