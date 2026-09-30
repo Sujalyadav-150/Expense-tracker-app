@@ -38,19 +38,38 @@ function simulationEnabled() {
 
 function getReturnUrl(req) {
   const configured = String(process.env.CASHFREE_RETURN_URL || "").trim();
-  // Prefer an explicitly configured Cashfree return URL. Otherwise return
-  // to the same deployment that created the order, so payment never jumps
-  // to a different Vercel deployment.
-  const fallback = `${req.protocol}://${req.get("host")}/expenses.html`;
-  const returnUrl = configured || fallback;
+  const fallback = req.protocol + "://" + req.get("host") + "/expenses.html";
+  const isProduction = String(process.env.NODE_ENV || "").toLowerCase() === "production";
 
-  if (
-    String(process.env.NODE_ENV || "").toLowerCase() === "production"
-    && /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/)/i.test(returnUrl)
-  ) {
-    throw new Error("CASHFREE_RETURN_URL must not use localhost in production.");
+  if (!configured) return fallback;
+
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/)/i.test(configured)) {
+    if (isProduction) {
+      throw new Error("CASHFREE_RETURN_URL must not use localhost in production.");
+    }
+    return configured;
   }
-  return returnUrl;
+
+  // In production, keep Cashfree on the same Vercel deployment that created
+  // the order. This prevents an old Vercel URL in the env from hijacking the
+  // return flow to another deployment.
+  try {
+    const configuredUrl = new URL(configured);
+    const currentUrl = new URL(fallback);
+    const bothVercel = configuredUrl.hostname.endsWith(".vercel.app")
+      && currentUrl.hostname.endsWith(".vercel.app");
+
+    if (isProduction && bothVercel && configuredUrl.origin !== currentUrl.origin) {
+      return fallback;
+    }
+  } catch {
+    if (isProduction) {
+      throw new Error("CASHFREE_RETURN_URL must be a valid HTTPS URL in production.");
+    }
+  }
+
+  return configured;
+}
 }
 
 async function fetchGatewayStatus(cashfree, orderId) {
