@@ -398,7 +398,9 @@ async function purchasePremiumFromReport() {
     // Open Cashfree's hosted checkout immediately from the user's button click.
     const result = await cashfree.checkout({
       paymentSessionId: order.payment_session_id,
-      redirectTarget: "_modal"
+      // Send the user directly to Cashfree's hosted payment page.
+      // This is more reliable on mobile browsers than the popup/modal flow.
+      redirectTarget: "_self"
     });
 
     if (result?.error || result?.paymentDetails?.paymentStatus === "FAILED") {
