@@ -450,33 +450,41 @@ async function loadLeaderboard() {
   try {
     const data = await apiJson("/api/leaderboard", { headers: authHeaders() });
     const rows = Array.isArray(data.leaderboard) ? data.leaderboard : [];
+    const premiumRows = rows.filter(row => row.isPremium === true);
+    const standardRows = rows.filter(row => row.isPremium !== true);
 
-    if (!rows.length) {
-      leaderboardStatus.textContent = "No data available yet.";
-      return;
-    }
+    const renderRows = (groupRows) => groupRows.map((row, index) => {
+      const rank = index + 1;
+      const medal = rank <= 3 ? ["🥇","🥈","🥉"][rank - 1] : "#" + rank;
+      const membership = row.isPremium
+        ? '<span class="membership-badge membership-premium">👑 PREMIUM</span>'
+        : '<span class="membership-badge membership-standard">⭐ STANDARD</span>';
 
-    leaderboardBody.innerHTML = rows.map(row => `
-      <tr class="${row.isCurrentUser ? "current-user-row" : ""}">
-        <td data-label="Rank">
-          ${row.rank <= 3
-            ? `<span class="rank-medal rank-${row.rank}">${["🥇","🥈","🥉"][row.rank - 1]}</span>`
-            : `<span class="rank-number">#${row.rank}</span>`}
-        </td>
-        <td data-label="Name">
-          <strong>${escapeHtml(row.name)}</strong>
-          ${row.isCurrentUser ? ' <span class="you-badge">You</span>' : ""}
-        </td>
-        <td data-label="Total Spent">${formatCurrency(row.totalExpense)}</td>
-        <td data-label="Transactions">${row.expenseCount}</td>
-      </tr>
-    `).join("");
+      return '<tr class="' + (row.isCurrentUser ? "current-user-row" : "") + '">' +
+        '<td data-label="Rank"><span class="rank-number">' + medal + '</span></td>' +
+        '<td data-label="Member"><strong>' + escapeHtml(row.name) + '</strong>' +
+          (row.isCurrentUser ? ' <span class="you-badge">You</span>' : "") + '</td>' +
+        '<td data-label="Membership">' + membership + '</td>' +
+        '<td data-label="Total Spent">' + formatCurrency(row.totalExpense) + '</td>' +
+        '<td data-label="Transactions">' + row.expenseCount + '</td>' +
+      '</tr>';
+    }).join("");
 
+    document.getElementById("premiumLeaderboardBody").innerHTML =
+      premiumRows.length ? renderRows(premiumRows)
+        : '<tr><td colspan="5" class="leaderboard-empty">No Premium members yet.</td></tr>';
+
+    document.getElementById("standardLeaderboardBody").innerHTML =
+      standardRows.length ? renderRows(standardRows)
+        : '<tr><td colspan="5" class="leaderboard-empty">No Standard members yet.</td></tr>';
+
+    document.getElementById("premiumCount").textContent = String(premiumRows.length);
+    document.getElementById("standardCount").textContent = String(standardRows.length);
     leaderboardTableWrap.hidden = false;
 
     const mine = rows.find(r => r.isCurrentUser);
     if (mine) {
-      myRankEl.textContent         = `#${mine.rank}`;
+      myRankEl.textContent         = mine.isPremium ? "Premium" : "Standard";
       myTotalExpenseEl.textContent = formatCurrency(mine.totalExpense);
       myExpenseCountEl.textContent = String(mine.expenseCount);
       myStats.hidden               = false;
@@ -484,7 +492,7 @@ async function loadLeaderboard() {
 
     leaderboardStatus.textContent = "";
   } catch (err) {
-    leaderboardStatus.textContent = `Unable to load leaderboard: ${err.message}`;
+    leaderboardStatus.textContent = "Unable to load leaderboard: " + err.message;
   } finally {
     leaderboardRefreshBtn.disabled = false;
   }
@@ -605,6 +613,7 @@ async function verifyAndActivate(orderId, testSuccess = false) {
   }
 
   updatePremiumUI();
+  loadLeaderboard().catch(() => {});
   alert("Transaction Successful");
   showNotification("🎉 You are a Premium User Now", "success");
   if (premiumMsg) premiumMsg.textContent = "🎉 You are a Premium User Now";
