@@ -449,6 +449,7 @@ function activatePremiumLocally(result) {
 }
 
 
+// Cashfree Premium checkout is intentionally opened in the current tab.
 // ---------------------------------------------------------------------------
 // Initialise
 // ---------------------------------------------------------------------------
