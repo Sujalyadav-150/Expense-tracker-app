@@ -1115,3 +1115,54 @@ tbody tr:hover{background:#f7faf6}
 @media(max-width:560px){
   .report-periods button{font-size:.74rem}
 }
+
+
+/* Report premium download gate */
+.premium-notice-bar {
+  align-items: center;
+  gap: 18px;
+}
+.premium-notice-copy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+.premium-notice-copy > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.premium-lock-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #fff4cf;
+  font-size: 1.15rem;
+}
+#reportBuyPremiumBtn.premium-upgrade-link {
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  font: 700 .88rem Arial, sans-serif;
+}
+#reportBuyPremiumBtn:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+.report-download.report-locked {
+  border-color: #d4a017;
+  box-shadow: 0 0 0 1px rgba(212,160,23,.18);
+}
+@media (max-width: 620px) {
+  .premium-notice-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  #reportBuyPremiumBtn.premium-upgrade-link {
+    width: 100%;
+    text-align: center;
+  }
+}
