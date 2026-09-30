@@ -1166,3 +1166,15 @@ tbody tr:hover{background:#f7faf6}
     text-align: center;
   }
 }
+
+
+/* Membership leaderboard groups */
+.leaderboard-groups{display:grid;gap:22px}
+.leaderboard-group{border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:16px;background:rgba(255,255,255,.02)}
+.leaderboard-group-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.leaderboard-group-heading h3{margin:0;font-size:1rem}
+.membership-count{min-width:28px;padding:4px 9px;border-radius:999px;text-align:center;background:rgba(255,255,255,.08);font-size:.8rem}
+.membership-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;font-size:.72rem;font-weight:800;letter-spacing:.02em}
+.membership-premium{background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.35);color:#fbbf24}
+.membership-standard{background:rgba(148,163,184,.12);border:1px solid rgba(148,163,184,.28);color:#cbd5e1}
+.leaderboard-empty{text-align:center;padding:20px;opacity:.7}
