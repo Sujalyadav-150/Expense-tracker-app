@@ -193,18 +193,44 @@
 
       <p id="leaderboardStatus" class="expense-list-status" role="status" aria-live="polite">Loading leaderboard...</p>
 
-      <div id="leaderboardTableWrap" class="table-wrap" hidden>
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Rank</th>
-              <th scope="col">Name</th>
-              <th scope="col">Total Spent</th>
-              <th scope="col">Transactions</th>
-            </tr>
-          </thead>
-          <tbody id="leaderboardBody"></tbody>
-        </table>
+      <div id="leaderboardTableWrap" class="leaderboard-groups" hidden>
+        <section class="leaderboard-group" aria-labelledby="premiumLeaderboardTitle">
+          <div class="leaderboard-group-heading">
+            <h3 id="premiumLeaderboardTitle">👑 Premium Users</h3>
+            <span class="membership-count" id="premiumCount">0</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th scope="col">Rank</th>
+                <th scope="col">Member</th>
+                <th scope="col">Membership</th>
+                <th scope="col">Total Spent</th>
+                <th scope="col">Transactions</th>
+              </tr></thead>
+              <tbody id="premiumLeaderboardBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="leaderboard-group" aria-labelledby="standardLeaderboardTitle">
+          <div class="leaderboard-group-heading">
+            <h3 id="standardLeaderboardTitle">⭐ Standard Users</h3>
+            <span class="membership-count" id="standardCount">0</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th scope="col">Rank</th>
+                <th scope="col">Member</th>
+                <th scope="col">Membership</th>
+                <th scope="col">Total Spent</th>
+                <th scope="col">Transactions</th>
+              </tr></thead>
+              <tbody id="standardLeaderboardBody"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </section>
 
