@@ -67,9 +67,17 @@
       </div>
 
       <!-- Premium notice (shown to non-premium users) -->
-      <div id="premiumNotice" class="premium-notice-bar" hidden role="alert">
-        <span>🔒 <strong>Premium membership required</strong> to download reports.</span>
-        <a href="expenses.html#premium" class="premium-upgrade-link">Upgrade to Premium →</a>
+      <div id="premiumNotice" class="premium-notice-bar" hidden role="alert" aria-live="assertive">
+        <div class="premium-notice-copy">
+          <span class="premium-lock-icon" aria-hidden="true">🔒</span>
+          <div>
+            <strong>Premium membership required</strong>
+            <span>You must buy Premium to download CSV or PDF reports.</span>
+          </div>
+        </div>
+        <button id="reportBuyPremiumBtn" class="premium-upgrade-link" type="button">
+          ⭐ Buy Premium — ₹199
+        </button>
       </div>
 
       <!-- Status / loading message -->
@@ -113,6 +121,7 @@
     </section>
 
   </main>
+  <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
   <script src="js/report.js"></script>
 </body>
 </html>
