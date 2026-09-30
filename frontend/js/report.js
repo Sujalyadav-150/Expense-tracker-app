@@ -210,8 +210,12 @@ function updateDownloadState() {
   downloadCsvBtn.textContent = `📥 Download ${periodLabel}_Report.csv`;
   downloadPdfBtn.textContent = `📄 Download ${periodLabel}_Report.pdf`;
 
-  // Premium notice bar.
+  // Premium notice is visible automatically for Standard users.
+  // Premium users never see the upgrade gate.
   if (premiumBadge) premiumBadge.hidden = !isPremium;
+  if (premiumNotice) {
+    premiumNotice.hidden = !(isPremium === false && canAttempt);
+  }
 }
 
 // ---------------------------------------------------------------------------
