@@ -54,14 +54,26 @@ exports.register = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(String(password), 10);
-    const user = await db.createUser({ name: trimmedName, email: normalizedEmail, password: hashedPassword });
-    const token = generateToken(user);
+    const user = await db.createUser({
+      name: trimmedName,
+      email: normalizedEmail,
+      password: hashedPassword,
+      isPremium: false
+    });
 
+    // Signup intentionally does NOT issue or store a login token.
+    // The user must go to Login and authenticate with the newly created
+    // email/password.
     return res.status(201).json({
       success: true,
-      message: "Account created successfully.",
-      user: { id: user.id, name: user.name, email: user.email, isPremium: false, ispremiumuser: false },
-      token
+      message: "Account created successfully. Please login.",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isPremium: false,
+        ispremiumuser: false
+      }
     });
   } catch (error) {
     console.error("signup/register error:", error.message);
