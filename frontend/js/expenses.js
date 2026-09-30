@@ -552,7 +552,7 @@ async function runCashfreeCheckout(order) {
   const cfClient = Cashfree({ mode: cfEnv });
   const result = await cfClient.checkout({
     paymentSessionId: order.payment_session_id,
-    redirectTarget: "_modal"
+    redirectTarget: "_self"
   });
 
   if (result?.error || result?.paymentDetails?.paymentStatus === "FAILED") {
