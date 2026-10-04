@@ -70,7 +70,6 @@ function getReturnUrl(req) {
 
   return configured;
 }
-}
 
 async function fetchGatewayStatus(cashfree, orderId) {
   const response = await cashfree.PGFetchOrder(orderId);
