@@ -3,8 +3,10 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const db = require("../utils/db");
 const PasswordResetToken = require("../models/PasswordResetToken");
+const mailService = require("../services/mailService");
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const GENERIC_FORGOT_MESSAGE = "If this account exists, a password reset email has been sent.";
 
 function generateToken(user) {
   if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is required.");
@@ -24,6 +26,13 @@ function generateToken(user) {
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(String(email || ""));
+}
+
+function buildResetUrl(req, token) {
+  const configuredBase = String(process.env.PUBLIC_APP_URL || "").trim().replace(/\/+$/, "");
+  const requestBase = `${req.protocol}://${req.get("host")}`;
+  const baseUrl = configuredBase || requestBase;
+  return `${baseUrl}/reset-password.html?token=${encodeURIComponent(token)}`;
 }
 
 async function verifyPassword(inputPassword, storedHash) {
@@ -136,35 +145,30 @@ exports.login = async (req, res) => {
 
 exports.forgotPassword = async (req, res) => {
   try {
-    const email = String(req.body.email || "").trim().toLowerCase();
-    if (!email) {
-      return res.status(400).json({ success: false, message: "Email is required." });
+    const email = String((req.body && req.body.email) || "").trim().toLowerCase();
+    if (isValidEmail(email)) {
+      const user = await db.getUser(email);
+      if (user) {
+        const rawToken = crypto.randomUUID();
+        const expiresInMs = 15 * 60 * 1000;
+        await db.createResetToken({ email: user.email, rawToken, expiresInMs });
+
+        const delivery = await mailService.sendPasswordResetEmail({
+          to: user.email,
+          name: user.name,
+          resetUrl: buildResetUrl(req, rawToken),
+          expiresInMinutes: 15
+        });
+        if (!delivery || delivery.delivered !== true) {
+          await db.markTokenUsed(PasswordResetToken.hashToken(rawToken));
+        }
+      }
     }
 
-    const user = await db.getUser(email);
-    if (!user) {
-      return res.status(200).json({
-        success: true,
-        message: "If an account exists for this email, a reset link has been sent."
-      });
-    }
-
-    const rawToken = crypto.randomUUID();
-    await db.createResetToken({ email, rawToken, expiresInMs: 15 * 60 * 1000 });
-
-    const resetUrl = `/reset-password.html?token=${encodeURIComponent(rawToken)}`;
-    return res.status(200).json({
-      success: true,
-      message: "Password reset link created successfully.",
-      resetToken: rawToken,
-      resetUrl
-    });
+    return res.status(200).json({ success: true, message: GENERIC_FORGOT_MESSAGE });
   } catch (error) {
-    console.error("forgotPassword error:", error.message);
-    if (db.isDatabaseError(error)) {
-      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
-    }
-    return res.status(500).json({ success: false, message: "Internal server error." });
+    console.error("forgotPassword failed to process a reset request.");
+    return res.status(200).json({ success: true, message: GENERIC_FORGOT_MESSAGE });
   }
 };
 

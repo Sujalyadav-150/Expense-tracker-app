@@ -8,6 +8,9 @@ database.connectDB = async () => true;
 const PasswordResetToken = require("../models/PasswordResetToken");
 const db = require("../utils/db");
 const authController = require("../controllers/authController");
+const mailService = require("../services/mailService");
+
+const GENERIC_FORGOT_MESSAGE = "If this account exists, a password reset email has been sent.";
 
 function createResponse() {
   return {
@@ -31,7 +34,10 @@ test("forgot/reset password preserves hashed, expiring, one-time reset tokens", 
   const originalUpdateOne = tokenModel.updateOne;
   const originalGetUser = db.getUser;
   const originalUpdatePassword = db.updateUserPassword;
+  const originalSendPasswordResetEmail = mailService.sendPasswordResetEmail;
+  const originalPublicAppUrl = process.env.PUBLIC_APP_URL;
   const storedTokens = [];
+  const sentResetEmails = [];
   let updatedPassword;
 
   tokenModel.create = async (record) => {
@@ -49,27 +55,55 @@ test("forgot/reset password preserves hashed, expiring, one-time reset tokens", 
   db.getUser = async (email) => email === "new-user@example.com"
     ? { id: "user-id", email, name: "New User" }
     : null;
+  mailService.sendPasswordResetEmail = async (email) => {
+    sentResetEmails.push(email);
+    return { delivered: true };
+  };
+  process.env.PUBLIC_APP_URL = "https://expense-tracker.example";
   db.updateUserPassword = async (email, hash) => {
     updatedPassword = { email, hash };
     return true;
   };
 
   try {
+    const unknownResponse = createResponse();
+    await authController.forgotPassword({
+      body: { email: "missing-user@example.com" },
+      protocol: "https",
+      get: () => "expense-tracker.example"
+    }, unknownResponse);
+    assert.equal(unknownResponse.statusCode, 200);
+    assert.equal(unknownResponse.body.message, GENERIC_FORGOT_MESSAGE);
+    assert.equal(Object.hasOwn(unknownResponse.body, "resetToken"), false);
+    assert.equal(Object.hasOwn(unknownResponse.body, "resetUrl"), false);
+    assert.equal(sentResetEmails.length, 0);
+
     const forgotResponse = createResponse();
-    await authController.forgotPassword({ body: { email: " New-User@Example.com " } }, forgotResponse);
+    await authController.forgotPassword({
+      body: { email: " New-User@Example.com " },
+      protocol: "http",
+      get: () => "internal.example"
+    }, forgotResponse);
     assert.equal(forgotResponse.statusCode, 200);
-    assert.ok(forgotResponse.body.resetToken);
-    assert.equal(new URLSearchParams(forgotResponse.body.resetUrl.split("?")[1]).get("token"), forgotResponse.body.resetToken);
+    assert.equal(forgotResponse.body.message, GENERIC_FORGOT_MESSAGE);
+    assert.equal(Object.hasOwn(forgotResponse.body, "resetToken"), false);
+    assert.equal(Object.hasOwn(forgotResponse.body, "resetUrl"), false);
+    assert.equal(sentResetEmails.length, 1);
+
+    const resetUrl = new URL(sentResetEmails[0].resetUrl);
+    const rawToken = resetUrl.searchParams.get("token");
+    assert.equal(resetUrl.origin, "https://expense-tracker.example");
+    assert.ok(rawToken);
 
     const stored = storedTokens[0];
     assert.equal(stored.userId, "new-user@example.com");
-    assert.equal(stored.tokenHash, PasswordResetToken.hashToken(forgotResponse.body.resetToken));
+    assert.equal(stored.tokenHash, PasswordResetToken.hashToken(rawToken));
     assert.equal(Object.hasOwn(stored, "rawToken"), false);
     assert.equal(new Date(stored.expiresAt).getTime() - new Date(stored.createdAt).getTime(), 15 * 60 * 1000);
 
     const resetResponse = createResponse();
     await authController.resetPassword({
-      body: { token: forgotResponse.body.resetToken, password: "newPassword123" }
+      body: { token: rawToken, password: "newPassword123" }
     }, resetResponse);
     assert.equal(resetResponse.statusCode, 200);
     assert.equal(updatedPassword.email, "new-user@example.com");
@@ -78,7 +112,7 @@ test("forgot/reset password preserves hashed, expiring, one-time reset tokens", 
 
     const reusedResponse = createResponse();
     await authController.resetPassword({
-      body: { token: forgotResponse.body.resetToken, password: "anotherPassword123" }
+      body: { token: rawToken, password: "anotherPassword123" }
     }, reusedResponse);
     assert.equal(reusedResponse.statusCode, 400);
     assert.equal(reusedResponse.body.message, "Invalid or expired reset token.");
@@ -95,5 +129,8 @@ test("forgot/reset password preserves hashed, expiring, one-time reset tokens", 
     tokenModel.updateOne = originalUpdateOne;
     db.getUser = originalGetUser;
     db.updateUserPassword = originalUpdatePassword;
+    mailService.sendPasswordResetEmail = originalSendPasswordResetEmail;
+    if (originalPublicAppUrl === undefined) delete process.env.PUBLIC_APP_URL;
+    else process.env.PUBLIC_APP_URL = originalPublicAppUrl;
   }
 });

@@ -2,6 +2,15 @@ const assert = require("node:assert/strict");
 const { once } = require("node:events");
 const app = require("../app");
 const db = require("../utils/db");
+const mailService = require("../services/mailService");
+
+const GENERIC_FORGOT_MESSAGE = "If this account exists, a password reset email has been sent.";
+const sentResetEmails = [];
+const originalSendPasswordResetEmail = mailService.sendPasswordResetEmail;
+mailService.sendPasswordResetEmail = async (email) => {
+  sentResetEmails.push(email);
+  return { delivered: true };
+};
 
 (async () => {
   const server = app.listen(0);
@@ -19,6 +28,11 @@ const db = require("../utils/db");
     return { status: res.status, data };
   }
 
+  function latestResetToken() {
+    const latestEmail = sentResetEmails[sentResetEmails.length - 1];
+    return new URL(latestEmail.resetUrl).searchParams.get("token");
+  }
+
   try {
     const testUser = {
       name: "Test Runner",
@@ -30,12 +44,21 @@ const db = require("../utils/db");
     const signupRes = await post("/api/auth/signup", testUser);
     assert.equal(signupRes.status, 201, "User signup should succeed");
 
+    const unknownEmail = await post("/api/auth/forgot-password", { email: `unknown-${Date.now()}@example.com` });
+    assert.equal(unknownEmail.status, 200);
+    assert.equal(unknownEmail.data.message, GENERIC_FORGOT_MESSAGE);
+    assert.equal(sentResetEmails.length, 0, "Unknown accounts must not receive email");
+
     const forgot1 = await post("/api/auth/forgot-password", { email: testUser.email });
     assert.equal(forgot1.status, 200, "Forgot password #1 should return 200");
-    assert.ok(forgot1.data.resetToken, "Forgot password should return resetToken");
+    assert.equal(forgot1.data.message, GENERIC_FORGOT_MESSAGE);
+    assert.equal(Object.hasOwn(forgot1.data, "resetToken"), false);
+    assert.equal(Object.hasOwn(forgot1.data, "resetUrl"), false);
+    const token1 = latestResetToken();
+    assert.ok(token1, "The reset token should be sent through email");
 
     const reset1 = await post("/api/auth/reset-password", {
-      token: forgot1.data.resetToken,
+      token: token1,
       password: "newPasswordCase1"
     });
     assert.equal(reset1.status, 200, "Reset password should succeed");
@@ -52,10 +75,12 @@ const db = require("../utils/db");
     console.log("--- TEST 2: Same user -> Forgot Password again -> Reset -> Login ---");
     const forgot2 = await post("/api/auth/forgot-password", { email: testUser.email });
     assert.equal(forgot2.status, 200, "Forgot password #2 should return 200");
-    assert.notEqual(forgot2.data.resetToken, forgot1.data.resetToken, "New request must generate a new token");
+    assert.equal(forgot2.data.message, GENERIC_FORGOT_MESSAGE);
+    const token2 = latestResetToken();
+    assert.notEqual(token2, token1, "New request must generate a new token");
 
     const reset2 = await post("/api/auth/reset-password", {
-      token: forgot2.data.resetToken,
+      token: token2,
       password: "newPasswordCase2"
     });
     assert.equal(reset2.status, 200, "Reset password #2 should succeed");
@@ -73,8 +98,10 @@ const db = require("../utils/db");
     for (let i = 1; i <= 5; i++) {
       const res = await post("/api/auth/forgot-password", { email: testUser.email });
       assert.equal(res.status, 200, `Forgot password request ${i} should return 200`);
-      assert.ok(res.data.resetToken, `Request ${i} should return a token`);
-      tokens.push(res.data.resetToken);
+      assert.equal(res.data.message, GENERIC_FORGOT_MESSAGE);
+      assert.equal(Object.hasOwn(res.data, "resetToken"), false);
+      assert.equal(Object.hasOwn(res.data, "resetUrl"), false);
+      tokens.push(latestResetToken());
     }
     const uniqueTokens = new Set(tokens);
     assert.equal(uniqueTokens.size, 5, "All 5 tokens must be unique");
@@ -152,5 +179,6 @@ const db = require("../utils/db");
     console.log("\nAll automated test cases passed successfully!");
   } finally {
     server.close();
+    mailService.sendPasswordResetEmail = originalSendPasswordResetEmail;
   }
 })();

@@ -1,5 +1,6 @@
 const form = document.getElementById("forgotPasswordForm");
 const message = document.getElementById("message");
+const genericMessage = "If this account exists, a password reset email has been sent.";
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -8,26 +9,14 @@ form.addEventListener("submit", async (event) => {
   message.textContent = "Sending reset link...";
 
   try {
-    const response = await fetch("/api/auth/forgot-password", {
+    await fetch("/api/auth/forgot-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email })
     });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || "Could not send reset link.");
-    }
-
-    if (result.resetUrl) {
-      message.innerHTML = `Reset link created. <a href="${result.resetUrl}">Click here if not redirected automatically</a>.`;
-      window.location.href = result.resetUrl;
-      return;
-    }
-
-    message.textContent = result.message || "Reset link sent.";
   } catch (error) {
-    message.textContent = error.message;
+    // Keep the response identical even when the request cannot be completed.
   }
+
+  message.textContent = genericMessage;
 });
