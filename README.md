@@ -1,365 +1,188 @@
- AI Expense Tracker
+# 💰 AI Expense Tracker
 
-A full-stack AI-powered Expense Tracker built with HTML, CSS, JavaScript, Node.js, Express, MongoDB/Mongoose, JWT authentication, and OpenAI-compatible AI APIs.
+An AI-powered expense management web application designed to help users manage their finances, track expenses, monitor transactions, and gain insights into their spending habits. The project also includes secure authentication, Premium Membership with Cashfree, and cloud deployment using AWS and Jenkins.
 
-The application allows users to create an account, log in securely, add and manage expenses, automatically categorize expenses using AI, and get AI-generated spending insights.
+## 🌐 Live Demo
 
-✨ Features
+**Live Application:** [AI Expense Tracker](http://3.25.146.190/)
 
-🔐 Authentication
+**GitHub Profile:** [Sujal Yadav](https://github.com/Sujalyadav-150)
 
-User registration with email and password
+## ✨ Features
 
-Login with email and password
+- **User Authentication:** Secure user registration and login.
+- **Expense Management:** Add, view, update, and delete expense records.
+- **Expense Dashboard:** Organize and monitor financial transactions.
+- **AI-Powered Insights:** Support for intelligent financial analysis, depending on the configured AI integration.
+- **Premium Membership:** Payment integration using Cashfree.
+- **Order Management:** Track payment orders and their statuses.
+- **Forgot Password:** Account recovery functionality.
+- **Responsive Interface:** Access the application through desktop and mobile browsers.
+- **Cloud Deployment:** Hosted on an AWS server.
+- **Automated Deployment:** Jenkins-based deployment workflow.
 
-Password hashing with bcryptjs
+## 🛠️ Tech Stack
 
-JWT-based authentication
+### Frontend
+- HTML
+- CSS
+- JavaScript
 
-Persistent login using browser local storage
+### Backend
+- Node.js
+- Express.js
+- REST APIs
 
-Logout functionality
+### Database
+- MongoDB
 
-Email validation and password length validation
+### Authentication and Payments
+- JSON Web Token (JWT)
+- Cashfree Payment Gateway
 
-💸 Expense Management
+### Cloud and DevOps
+- **AWS EC2** — Cloud hosting
+- **Jenkins** — Deployment automation
+- **GitHub** — Source code management
+- **CI/CD** — Automated deployment workflow, depending on pipeline configuration
 
-Add expenses with:
+## ☁️ AWS Deployment & Jenkins
 
-Amount
+The application is deployed on AWS and uses Jenkins to streamline the deployment process.
 
-Description
+### Deployment Workflow
 
-Category
+1. Code changes are pushed to GitHub.
+2. Jenkins executes the configured deployment pipeline.
+3. The pipeline deploys the application to the AWS server.
+4. Users access the application through its public endpoint.
 
-View all expenses
+### Live Server
 
-Delete expenses
+[http://3.25.146.190/](http://3.25.146.190/)
 
-Calculate total spending
+> The live URL depends on the AWS server being active and its network and security configuration allowing access.
 
-Expense date display
+## 💳 Cashfree Payment Integration
 
-Responsive expense dashboard
+The application includes a Premium Membership payment flow using Cashfree.
 
-🤖 AI Features
+Typical payment workflow:
 
-Automatic expense category suggestion
+1. An authenticated user selects Premium Membership.
+2. The backend creates a payment order.
+3. The frontend opens the Cashfree checkout flow.
+4. The backend verifies the payment status.
+5. Premium access is activated only after successful server-side verification.
 
-AI-powered spending insights
+Use Cashfree sandbox credentials for testing and never expose payment secrets in the frontend or repository.
 
-Manual category selection is also available
+## 📂 Project Structure
 
-AI requests are handled by the backend so the API key is not exposed in the frontend
-
-🗄️ Database
-
-MongoDB Atlas
-
-Mongoose ODM
-
-User and Expense models
-
-Persistent expense and user data
-
-💳 Premium Membership
-
-Cashfree ₹199 Premium membership
-MongoDB-backed premium orders with pending, successful, and failed states
-Server-side payment verification and Cashfree webhook handling
-Premium-only CSV and PDF report downloads
-
-📊 Reports
-
-Daily, weekly, monthly, and yearly date ranges
-Server-generated CSV and PDF exports
-Reports are always scoped to the authenticated user
-
-🚀 Deployment
-
-Vercel-compatible frontend build
-
-Serverless API entry point
-
-CORS configuration for deployed frontend/backend
-
-Environment-variable based configuration
-
-🛠️ Tech Stack
-
-Frontend
-HTML5
-CSS3
-Vanilla JavaScript
-Vite
-
-Backend
-Node.js
-Express.js
-REST API
-JWT
-bcryptjs
-
-Database
-MongoDB Atlas
-Mongoose
-
-AI
-OpenAI-compatible API
-OpenRouter support
-AI expense categorization
-AI spending insights
-
-Deployment
-Vercel
-GitHub
-
-📁 Project Structure
-
+```text
 AI-Expense-Tracker/
-│
-├── api/
-│   └── index.js
-│
 ├── backend/
-│   ├── config/
-│   │   └── database.js
-│   ├── controllers/
-│   │   ├── aiController.js
-│   │   ├── authController.js
-│   │   └── expenseController.js
-│   ├── middleware/
-│   │   └── auth.js
 │   ├── models/
-│   │   ├── Expense.js
-│   │   ├── Order.js
-│   │   └── User.js
 │   ├── routes/
-│   │   ├── aiRoutes.js
-│   │   ├── authRoutes.js
-│   │   └── expenseRoutes.js
-│   ├── services/
-│   │   └── aiService.js
-│   ├── utils/
-│   │   └── db.js
-│   ├── app.js
-│   └── server.js
-│
+│   ├── middleware/
+│   ├── server.js
+│   └── ...
 ├── frontend/
+│   ├── css/
+│   ├── js/
 │   ├── index.html
-│   ├── script.js
-│   └── style.css
-│
-├── .gitignore
+│   └── ...
 ├── package.json
-├── package-lock.json
-├── vercel.json
+├── .gitignore
 └── README.md
+```
 
-⚙️ Prerequisites
+*Adjust this structure to match the actual folders and files in your repository.*
 
-Make sure you have installed:
+## ⚙️ Installation and Setup
 
-Node.js
-npm
-Git
+### 1. Clone the repository
 
-A MongoDB Atlas database
-An OpenRouter/OpenAI-compatible API key for AI features
+```bash
+git clone YOUR_GITHUB_REPOSITORY_URL
+cd YOUR_PROJECT_FOLDER
+```
 
-🚀 Run Locally
+### 2. Install dependencies
 
-1. Clone the repository
-
-git clone https://github.com/Sujalyadav-150/Expense-tracker-app.git
-
-cd Expense-tracker-app
-
-2. Install dependencies
-
+```bash
 npm install
+```
 
-3. Configure environment variables
+If the backend has its own `package.json`, install its dependencies separately:
 
-Create:
+```bash
+cd backend
+npm install
+```
 
-backend/.env
+### 3. Configure environment variables
 
-Use backend/.env.example as a template.
-
-Required production-style variables include:
-
-MONGODB_URI=mongodb+srv://USERNAME:PASSWORD@CLUSTER.mongodb.net/expense_tracker
-OPENROUTER_API_KEY=your_openrouter_api_key
-JWT_SECRET=replace_with_a_long_random_secret
-PREMIUM_EMAILS=premium@example.com
-CORS_ORIGINS=http://localhost:5173
-
-Never commit .env or API keys to GitHub.
-
-4. Start the backend
-
-npm start
-
-The backend will run on:
-
-http://localhost:5000
-
-5. Start the frontend
-
-npm run build
-
-For local frontend development, use a static/Vite development server as appropriate for your setup.
-
-🔑 Authentication Flow
-
-Registration
-
-The user provides:
-
-Email
-Password
-
-The password is hashed using bcryptjs before it is stored.
-
-Login
-
-The user provides:
-
-Email
-Password
-
-After successful authentication, the backend returns a JWT token.
-
-The frontend stores the authentication token in browser local storage and sends it with protected requests.
+Create a `.env` file in the directory where the backend loads its environment configuration.
 
 Example:
 
-Authorization: Bearer <JWT_TOKEN>
+```env
+PORT=5000
+NODE_ENV=development
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_strong_random_secret
 
-🤖 AI Expense Categorization
-
-If the user does not manually select a category, the application can use the backend AI service to suggest a category.
-
-If AI categorization fails, the application safely falls back to:
-
-Other
-
-📊 AI Spending Insight
-
-The application can analyze stored expenses and generate an AI-based spending insight.
-
-🔌 REST API
-
-Authentication
-
-POST /api/auth/register
-
-POST /api/auth/login
-
-Expenses
-
-GET /api/expenses?page=1&limit=10
-
-Expense pages are scoped to the authenticated user. Supported page sizes are 5, 10, 20, 30, and 40. The response includes `expenses`, `pagination` metadata (`currentPage`, `pageSize`, `totalExpenses`, `totalPages`, `hasNextPage`, and `hasPreviousPage`), and the all-time `totalAmount`.
-
-POST /api/expenses
-
-DELETE /api/expenses/:id
-
-Reports
-
-GET /api/expenses/report?period=daily|weekly|monthly|yearly&date=YYYY-MM-DD&format=json|csv|pdf
-
-Premium
-
-POST /api/purchase/premium
-
-POST /api/purchase/update-status
-
-GET /api/purchase/status/:orderId
-
-Premium report downloads and payment routes require JWT authentication. The
-backend verifies the authenticated user's email against the order and expense
-queries never use a frontend-supplied email.
-
-Leaderboard
-
-AI
-
-POST /api/ai/categorize
-
-GET /api/ai/insight
-
-Health
-
-GET /api/health
-
-A successful production health response should report the backend status and, in the latest deployment, the database connection status.
-
-🌐 Deployment
-
-The project includes a vercel.json configuration for Vercel deployment.
-
-Production environment variables should be configured in Vercel:
-
-MONGODB_URI=your_mongodb_atlas_connection_string
-JWT_SECRET=your_secure_secret
-OPENROUTER_API_KEY=your_openrouter_api_key
-CASHFREE_ENV=sandbox
 CASHFREE_APP_ID=your_cashfree_app_id
 CASHFREE_SECRET_KEY=your_cashfree_secret_key
-CASHFREE_RETURN_URL=https://expense-tracker-app-mu-neon.vercel.app/expenses.html
-PUBLIC_APP_URL=https://expense-tracker-app-mu-neon.vercel.app
+CASHFREE_ENV=sandbox
+```
 
-Do not expose private backend secrets in frontend environment variables.
+Add any additional environment variables required by your actual project, including AI API keys and email credentials.
 
-MongoDB Atlas must also allow connections from the deployed serverless application through its Network Access configuration.
+**Security:** Never commit `.env` files, API keys, database credentials, JWT secrets, or Cashfree secret keys to GitHub.
 
-🔒 Security
+### 4. Start the application
 
-Password hashing with bcryptjs
-JWT authentication
-Backend-only AI API key
-.env excluded from Git
-MongoDB credentials excluded from Git
-CORS configuration
-Input validation
-Protected API endpoints
+Run the command configured in your `package.json`. For example:
 
-Important
+```bash
+npm start
+```
 
-Do not upload:
+If your frontend and backend run separately, start each using its configured command.
 
-.env
-API keys
-JWT secrets
-database credentials
+## 🔐 Security Considerations
 
-to GitHub.
+- Store passwords securely using password hashing.
+- Protect private expense APIs with authentication and authorization.
+- Validate and authorize expense operations on the backend.
+- Verify Cashfree payment status on the server.
+- Keep all secrets in environment variables.
+- Use HTTPS and appropriate server security settings in production.
 
-📌 Performance
+## 🎯 Project Objectives
 
-The backend reuses cached MongoDB connections for serverless invocations and returns saved expense records directly after creation so the dashboard updates immediately.
+- Simplify personal finance management.
+- Provide an organized interface for tracking expenses.
+- Integrate secure online payments for premium features.
+- Gain practical experience in backend development, cloud hosting, and deployment automation.
+- Understand how GitHub and Jenkins can support a repeatable deployment workflow on AWS.
 
-📌 Future Improvements
+## 🚀 Future Enhancements
 
-Possible improvements include:
+- Advanced spending analytics and interactive charts.
+- Monthly budgets and expense category reports.
+- More AI-driven financial insights.
+- Automated testing and additional CI/CD pipeline stages.
+- Improved monitoring and deployment notifications.
 
-Edit expense functionality
-Expense charts and visual analytics
-Budget limits and notifications
-Password reset through email
-Refresh-token based authentication
-More advanced AI financial recommendations
-Improved role and permission management
+## 👨‍💻 Author
 
-👨‍💻 Author
+**Sujal Yadav**
 
-Sujal Yadav
+GitHub: [Sujalyadav-150](https://github.com/Sujalyadav-150)
 
-GitHub:
-https://github.com/Sujalyadav-150
+---
 
-Project Repository:
-https://github.com/Sujalyadav-150/Expense-tracker-app
+⭐ If you find this project useful, consider giving the repository a star.
