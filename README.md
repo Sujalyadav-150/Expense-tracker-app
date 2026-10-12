@@ -1,83 +1,86 @@
 # 💰 AI Expense Tracker
 
-An AI-powered expense management web application designed to help users manage their finances, track expenses, monitor transactions, and gain insights into their spending habits. The project also includes secure authentication, Premium Membership with Cashfree, and cloud deployment using AWS and Jenkins.
+An expense management web application designed to help users track expenses, manage transactions, and explore smarter financial insights. The project also includes a Premium Membership payment flow and cloud deployment using AWS EC2 and Jenkins.
 
 ## 🌐 Live Demo
 
-**Live Application:** [AI Expense Tracker](http://3.25.146.190/)
+**Live Application:** [http://3.25.146.190/](http://3.25.146.190/)
 
 **GitHub Profile:** [Sujal Yadav](https://github.com/Sujalyadav-150)
 
+> The live demo depends on the AWS instance being active and its network configuration allowing access. The URL currently uses HTTP; configure HTTPS before using real sensitive data.
+
 ## ✨ Features
 
-- **User Authentication:** Secure user registration and login.
-- **Expense Management:** Add, view, update, and delete expense records.
-- **Expense Dashboard:** Organize and monitor financial transactions.
-- **AI-Powered Insights:** Support for intelligent financial analysis, depending on the configured AI integration.
-- **Premium Membership:** Payment integration using Cashfree.
-- **Order Management:** Track payment orders and their statuses.
-- **Forgot Password:** Account recovery functionality.
-- **Responsive Interface:** Access the application through desktop and mobile browsers.
-- **Cloud Deployment:** Hosted on an AWS server.
-- **Automated Deployment:** Jenkins-based deployment workflow.
+- **User Authentication:** Sign-up and login functionality.
+- **Expense Management:** Add, view, update, and delete expense records, where implemented.
+- **Expense Dashboard:** View and organize financial transactions.
+- **Premium Membership:** Cashfree payment gateway integration.
+- **Order Management:** Create and track payment orders according to the implemented payment flow.
+- **Password Recovery:** Forgot-password functionality, if configured.
+- **AI-Enabled Insights:** AI-related functionality depends on the API integration and configuration in the current codebase.
+- **Cloud Hosting:** Application hosted on an AWS server.
+- **Deployment Automation:** Jenkins deployment workflow.
 
 ## 🛠️ Tech Stack
 
-### Frontend
-- HTML
-- CSS
-- JavaScript
-
-### Backend
+### Application
+- HTML, CSS, JavaScript
 - Node.js
 - Express.js
 - REST APIs
-
-### Database
 - MongoDB
 
 ### Authentication and Payments
-- JSON Web Token (JWT)
+- JSON Web Token (JWT), if enabled in the application
 - Cashfree Payment Gateway
 
-### Cloud and DevOps
-- **AWS EC2** — Cloud hosting
-- **Jenkins** — Deployment automation
-- **GitHub** — Source code management
-- **CI/CD** — Automated deployment workflow, depending on pipeline configuration
+### DevOps and Deployment
+- AWS EC2 — cloud server hosting
+- Jenkins — deployment automation
+- GitHub — source code management
+- PM2 — process management, if configured on the server
 
-## ☁️ AWS Deployment & Jenkins
+## 🏗️ Architecture
 
-The application is deployed on AWS and uses Jenkins to streamline the deployment process.
+```text
+User Browser
+    |
+    v
+Frontend (HTML, CSS, JavaScript)
+    |
+    v
+Backend API (Node.js + Express)
+    |
+    v
+MongoDB Database
 
-### Deployment Workflow
+Source Code: GitHub
+       |
+       v
+Jenkins Deployment Job
+       |
+       v
+AWS EC2 Server
+       |
+       v
+Live Application: http://3.25.146.190/
+```
 
-1. Code changes are pushed to GitHub.
-2. Jenkins executes the configured deployment pipeline.
-3. The pipeline deploys the application to the AWS server.
-4. Users access the application through its public endpoint.
+## 🔄 Deployment Workflow
 
-### Live Server
+1. Update the application code.
+2. Commit and push changes to the GitHub repository.
+3. Run the configured Jenkins job.
+4. Jenkins fetches the configured branch and runs the deployment commands.
+5. The application process is restarted on the AWS EC2 instance, if configured in the pipeline.
+6. Open the live URL and verify that the updated version works.
 
-[http://3.25.146.190/](http://3.25.146.190/)
-
-> The live URL depends on the AWS server being active and its network and security configuration allowing access.
-
-## 💳 Cashfree Payment Integration
-
-The application includes a Premium Membership payment flow using Cashfree.
-
-Typical payment workflow:
-
-1. An authenticated user selects Premium Membership.
-2. The backend creates a payment order.
-3. The frontend opens the Cashfree checkout flow.
-4. The backend verifies the payment status.
-5. Premium access is activated only after successful server-side verification.
-
-Use Cashfree sandbox credentials for testing and never expose payment secrets in the frontend or repository.
+**Pipeline note:** Describe this as an automated deployment pipeline. Claim automated tests or a complete CI/CD pipeline only if those stages are actually configured and working in Jenkins.
 
 ## 📂 Project Structure
+
+The exact layout may differ in your repository. Update this example to match the real folders:
 
 ```text
 AI-Expense-Tracker/
@@ -97,11 +100,17 @@ AI-Expense-Tracker/
 └── README.md
 ```
 
-*Adjust this structure to match the actual folders and files in your repository.*
+## ⚙️ Local Setup
 
-## ⚙️ Installation and Setup
+### Prerequisites
+
+- Node.js and npm
+- MongoDB local instance or MongoDB Atlas database
+- Git
 
 ### 1. Clone the repository
+
+Replace the placeholder with your actual GitHub repository URL:
 
 ```bash
 git clone YOUR_GITHUB_REPOSITORY_URL
@@ -114,7 +123,7 @@ cd YOUR_PROJECT_FOLDER
 npm install
 ```
 
-If the backend has its own `package.json`, install its dependencies separately:
+If the backend has a separate `package.json`, install its dependencies from that directory as well:
 
 ```bash
 cd backend
@@ -123,66 +132,77 @@ npm install
 
 ### 3. Configure environment variables
 
-Create a `.env` file in the directory where the backend loads its environment configuration.
-
-Example:
+Create a `.env` file in the directory from which the backend loads environment variables. Example variable names (use the names expected by your code):
 
 ```env
 PORT=5000
 NODE_ENV=development
 MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_strong_random_secret
+JWT_SECRET=replace_with_a_long_random_secret
 
 CASHFREE_APP_ID=your_cashfree_app_id
 CASHFREE_SECRET_KEY=your_cashfree_secret_key
 CASHFREE_ENV=sandbox
 ```
 
-Add any additional environment variables required by your actual project, including AI API keys and email credentials.
-
-**Security:** Never commit `.env` files, API keys, database credentials, JWT secrets, or Cashfree secret keys to GitHub.
+Add any other variables your project needs, such as AI provider keys or SMTP settings. Do not commit real values.
 
 ### 4. Start the application
 
-Run the command configured in your `package.json`. For example:
+Use the scripts defined in your `package.json`. For example:
 
 ```bash
 npm start
 ```
 
-If your frontend and backend run separately, start each using its configured command.
+If frontend and backend are served separately, start each using its configured script or local HTTP server. Then open the local URL shown by your setup.
 
-## 🔐 Security Considerations
+## 💳 Cashfree Payment Flow
 
-- Store passwords securely using password hashing.
-- Protect private expense APIs with authentication and authorization.
+A typical Premium Membership flow is:
+
+1. The signed-in user selects Premium Membership.
+2. The backend creates a payment order.
+3. The frontend opens the Cashfree checkout.
+4. The backend verifies the payment status with Cashfree.
+5. Premium access is granted only after the backend confirms successful payment.
+
+Use Cashfree sandbox credentials for testing. Never grant paid access based only on a frontend success message.
+
+## 🔐 Security Notes
+
+- Keep `.env` files, API keys, database credentials, and payment secrets out of Git.
+- Use strong, unique secrets in production.
 - Validate and authorize expense operations on the backend.
-- Verify Cashfree payment status on the server.
-- Keep all secrets in environment variables.
-- Use HTTPS and appropriate server security settings in production.
+- Verify payments server-side before activating Premium Membership.
+- Restrict database access and configure server/network rules carefully.
+- Configure HTTPS before sending credentials or financial data over the public internet.
 
-## 🎯 Project Objectives
+## 🧪 Testing Before a Demo
 
-- Simplify personal finance management.
-- Provide an organized interface for tracking expenses.
-- Integrate secure online payments for premium features.
-- Gain practical experience in backend development, cloud hosting, and deployment automation.
-- Understand how GitHub and Jenkins can support a repeatable deployment workflow on AWS.
+- [ ] Open the live application URL.
+- [ ] Test sign-up and login.
+- [ ] Add an expense and confirm it appears in the dashboard.
+- [ ] Test editing and deleting an expense if supported.
+- [ ] Confirm records persist after refreshing.
+- [ ] Test Cashfree using sandbox credentials.
+- [ ] Run the Jenkins deployment job and check its console output.
+- [ ] Verify the updated application after deployment.
 
-## 🚀 Future Enhancements
+## 🎯 What I Learned
 
-- Advanced spending analytics and interactive charts.
-- Monthly budgets and expense category reports.
-- More AI-driven financial insights.
-- Automated testing and additional CI/CD pipeline stages.
-- Improved monitoring and deployment notifications.
+- Full-stack web application development.
+- REST API design and database integration.
+- User authentication and payment workflow concepts.
+- Hosting a web application on AWS EC2.
+- Managing source code with Git and GitHub.
+- Automating application deployment with Jenkins.
 
 ## 👨‍💻 Author
 
-**Sujal Yadav**
-
+**Sujal Yadav**  
 GitHub: [Sujalyadav-150](https://github.com/Sujalyadav-150)
 
 ---
 
-⭐ If you find this project useful, consider giving the repository a star.
+If you find this project useful, consider starring the repository.
